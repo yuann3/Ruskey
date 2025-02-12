@@ -24,7 +24,7 @@ impl Lexer {
     }
 
     /// Reads the next character in the input and advances the position
-    pub fn read_char(&mut self) {
+    fn read_char(&mut self) {
         if self.read_position >= self.input.len() {
             self.ch = 0;
         } else {
@@ -34,13 +34,46 @@ impl Lexer {
         self.read_position += 1;
     }
 
+    /// Peek next char without advancing the position
+    fn peek_char(&mut self) -> u8 {
+        if self.read_position >= self.input.len() {
+            0
+        } else {
+            self.input.as_bytes()[self.read_position]
+        }
+    }
+
     /// Returns the next token in the input
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         let tok = match self.ch {
-            b'=' => Token::new(TokenType::Assign, String::from("=")),
+            b'=' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch as char, self.ch as char);
+                    Token::new(TokenType::Eq, literal)
+                } else {
+                    Token::new(TokenType::Assign, String::from("="))
+                }
+            }
+            b'!' => {
+                if self.peek_char() == b'=' {
+                    let ch = self.ch;
+                    self.read_char();
+                    let literal = format!("{}{}", ch as char, self.ch as char);
+                    Token::new(TokenType::NotEq, literal)
+                } else {
+                    Token::new(TokenType::Bang, String::from("!"))
+                }
+            }
             b'+' => Token::new(TokenType::Plus, String::from("+")),
+            b'-' => Token::new(TokenType::Minus, String::from("-")),
+            b'/' => Token::new(TokenType::Slash, String::from("/")),
+            b'*' => Token::new(TokenType::Asterisk, String::from("*")),
+            b'<' => Token::new(TokenType::Lt, String::from("<")),
+            b'>' => Token::new(TokenType::Gt, String::from(">")),
             b'(' => Token::new(TokenType::Lparen, String::from("(")),
             b')' => Token::new(TokenType::Rparen, String::from(")")),
             b'{' => Token::new(TokenType::Lbrace, String::from("{")),

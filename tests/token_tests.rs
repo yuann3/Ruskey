@@ -20,6 +20,14 @@ fn test_all_token_types() {
         (TokenType::Ident, "x"),
         (TokenType::Int, "5"),
         (TokenType::Assign, "="),
+        (TokenType::Minus, "-"),
+        (TokenType::Bang, "!"),
+        (TokenType::Asterisk, "*"),
+        (TokenType::Slash, "/"),
+        (TokenType::Lt, "<"),
+        (TokenType::Gt, ">"),
+        (TokenType::Eq, "=="),
+        (TokenType::NotEq, "!="),
         (TokenType::Plus, "+"),
         (TokenType::Comma, ","),
         (TokenType::Semicolon, ";"),
@@ -29,6 +37,11 @@ fn test_all_token_types() {
         (TokenType::Rbrace, "}"),
         (TokenType::Function, "fn"),
         (TokenType::Let, "let"),
+        (TokenType::True, "true"),
+        (TokenType::False, "false"),
+        (TokenType::If, "if"),
+        (TokenType::Else, "else"),
+        (TokenType::Return, "return"),
     ];
 
     for (token_type, literal) in tokens {
