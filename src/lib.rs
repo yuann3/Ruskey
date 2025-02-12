@@ -4,4 +4,5 @@
 //! "Writing An Interpreter In Go" by Thorsten Ball, but written in Rust.
 
 pub mod lexer;
+pub mod repl;
 pub mod token;
