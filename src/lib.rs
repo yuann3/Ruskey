@@ -3,6 +3,8 @@
 //! This is an implementation of the Monkey programming language from the book
 //! "Writing An Interpreter In Go" by Thorsten Ball, but written in Rust.
 
+pub mod ast;
 pub mod lexer;
+pub mod parser;
 pub mod repl;
 pub mod token;
