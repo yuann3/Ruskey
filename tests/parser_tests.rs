@@ -1,4 +1,4 @@
-use ruskey::ast::{LetStatement, Node, Statement};
+use ruskey::ast::{LetStatement, Node, ReturnStatement, Statement};
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
 
@@ -66,4 +66,38 @@ fn test_let_statement(stmt: &dyn Statement, name: &str) {
         name,
         let_stmt.name.token_literal()
     );
+}
+
+fn test_return_statements() {
+    let input = r#"
+return 5;
+return 10;
+return 993322;
+"#;
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    assert_eq!(
+        program.statements.len(),
+        3,
+        "program.statements does not contain 3 statements. got={}",
+        program.statements.len()
+    );
+
+    for stmt in &program.statements {
+        let return_stmt = stmt
+            .as_any()
+            .downcast_ref::<ReturnStatement>()
+            .unwrap_or_else(|| panic!("stmt not ReturnStatement. got={:?}", stmt));
+
+        assert_eq!(
+            return_stmt.token_literal(),
+            "return",
+            "return_stmt.token_literal not 'return'. got={}",
+            return_stmt.token_literal()
+        );
+    }
 }

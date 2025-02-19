@@ -1,4 +1,4 @@
-use crate::ast::{Identifier, LetStatement, Program, Statement};
+use crate::ast::{Identifier, LetStatement, Program, ReturnStatement, Statement};
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
 
@@ -45,6 +45,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Box<dyn Statement>> {
         match self.cur_token.token_type {
             TokenType::Let => self.parse_let_statement(),
+            TokenType::Return => self.parse_return_statement(),
             _ => None,
         }
     }
@@ -76,6 +77,25 @@ impl Parser {
         };
 
         Some(Box::new(stmt))
+    }
+
+    fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
+        let token = self.cur_token.clone();
+
+        while !self.cur_token_is(TokenType::Semicolon) {
+            self.next_token();
+        }
+
+        let stmt = ReturnStatement {
+            token,
+            return_value: None,
+        };
+
+        Some(Box::new(stmt))
+    }
+
+    fn cur_token_is(&self, t: TokenType) -> bool {
+        self.cur_token.token_type == t
     }
 
     pub fn errors(&self) -> &[String] {
