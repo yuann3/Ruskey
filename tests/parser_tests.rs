@@ -194,3 +194,109 @@ fn test_integer_literal(il: &Box<dyn Expression>, value: i64) {
         int_lit.token_literal()
     );
 }
+
+#[test]
+fn test_parsing_infix_expressions() {
+    struct InfixTest {
+        input: &'static str,
+        left_value: i64,
+        operator: &'static str,
+        right_value: i64,
+    }
+
+    let infix_tests = vec![
+        InfixTest {
+            input: "5 + 5;",
+            left_value: 5,
+            operator: "+",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 - 5;",
+            left_value: 5,
+            operator: "-",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 * 5;",
+            left_value: 5,
+            operator: "*",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 / 5;",
+            left_value: 5,
+            operator: "/",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 > 5;",
+            left_value: 5,
+            operator: ">",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 < 5;",
+            left_value: 5,
+            operator: "<",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 == 5;",
+            left_value: 5,
+            operator: "==",
+            right_value: 5,
+        },
+        InfixTest {
+            input: "5 != 5;",
+            left_value: 5,
+            operator: "!=",
+            right_value: 5,
+        },
+    ];
+
+    for test in infix_tests {
+        let l = Lexer::new(test.input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(
+            program.statements.len(),
+            1,
+            "program.statements does not contain {} statements. got={}",
+            1,
+            program.statements.len()
+        );
+
+        let stmt = program.statements[0]
+            .as_any()
+            .downcast_ref::<ExpressionStatement>()
+            .expect("statement is not ExpressionStatement");
+
+        // We'll need to implement test_infix_expression after we create the InfixExpression struct
+        test_infix_expression(
+            &stmt.expression,
+            test.left_value,
+            test.operator,
+            test.right_value,
+        );
+    }
+}
+
+fn test_infix_expression(exp: &Box<dyn Expression>, left: i64, operator: &str, right: i64) {
+    let infix_exp = exp
+        .as_any()
+        .downcast_ref::<InfixExpression>()
+        .expect("expression not InfixExpression");
+
+    test_integer_literal(&infix_exp.left, left);
+
+    assert_eq!(
+        infix_exp.operator, operator,
+        "operator is not '{}'. got={}",
+        operator, infix_exp.operator
+    );
+
+    test_integer_literal(&infix_exp.right, right);
+}
