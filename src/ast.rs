@@ -1,72 +1,119 @@
+//! Abstract Syntax Tree (AST) module
 use crate::token::Token;
 use std::any::Any;
+use std::fmt;
 use std::fmt::Debug;
 
+/// Base trait for all AST nodes
+///
+/// Every node in our AST must implement this trait to provide
+/// a consistent interface for token information.
 pub trait Node: Any {
+    /// Returns the literal value of the token associated with this node
     fn token_literal(&self) -> String;
 }
 
+/// Represents a statement in the language
+///
+/// Statements are language constructs that perform actions but don't
+/// produce values (e.g., let statements, return statements)
 pub trait Statement: Node + Debug {
+    /// Marker method to identify statement nodes
     fn statement_node(&self);
+    /// Enables downcasting to concrete statement types
     fn as_any(&self) -> &dyn Any;
 }
 
+/// Represents an expression in the language
+///
+/// Expressions are language constructs that produce values
+/// (e.g., identifiers, literals, operators)
 pub trait Expression: Node + Debug {
+    /// Marker method to identify expression nodes
     fn expression_node(&self);
+    /// Enables downcasting to concrete expression types
     fn as_any(&self) -> &dyn Any;
 }
 
+/// A return statement (e.g., "return 5;")
 #[derive(Debug)]
 pub struct ReturnStatement {
+    /// The 'return' token
     pub token: Token,
+    /// The value being returned (optional)
     pub return_value: Option<Box<DummyExpression>>,
 }
 
+/// An identifier (e.g., variable names)
 #[derive(Debug)]
 pub struct Identifier {
+    /// The identifier's token
     pub token: Token,
+    /// The identifier's string value
     pub value: String,
 }
 
+/// A let statement (e.g., "let x = 5;")
 #[derive(Debug)]
 pub struct LetStatement {
+    /// The 'let' token
     pub token: Token,
+    /// The identifier being bound
     pub name: Identifier,
+    /// The value being assigned (optional)
     pub value: Option<Box<DummyExpression>>,
 }
 
+/// The root node of our AST
 #[derive(Debug)]
 pub struct Program {
+    /// Collection of statements that make up the program
     pub statements: Vec<Box<dyn Statement>>,
 }
 
+/// A placeholder for expressions that haven't been implemented yet
 #[derive(Debug)]
 pub struct DummyExpression;
 
+/// A statement that consists of a single expression
 #[derive(Debug)]
 pub struct ExpressionStatement {
+    /// The first token of the expression
     pub token: Token,
+    /// The actual expression
     pub expression: Box<dyn Expression>,
 }
 
+/// An infix expression (e.g., "a + b", "x * y")
 #[derive(Debug)]
 pub struct InfixExpression {
+    /// The operator token
     pub token: Token,
+    /// Left-hand expression
     pub left: Box<dyn Expression>,
+    /// The operator string
     pub operator: String,
+    /// Right-hand expression
     pub right: Box<dyn Expression>,
 }
 
+/// A prefix expression (e.g., "!true", "-5")
 #[derive(Debug)]
 pub struct PrefixExpression {
+    /// The operator token
     pub token: Token,
+    /// The operator string
     pub operator: String,
+    /// The expression being operated on
     pub right: Box<dyn Expression>,
 }
 
+/// An integer literal (e.g., "5", "10")
 #[derive(Debug)]
 pub struct IntegerLiteral {
+    /// The integer token
     pub token: Token,
+    /// The parsed integer value
     pub value: i64,
 }
 
@@ -189,5 +236,108 @@ impl Expression for Identifier {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl fmt::Display for Program {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for s in &self.statements {
+            write!(f, "{}", s)?;
+        }
+        Ok(())
+    }
+}
+
+impl fmt::Display for dyn Statement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(stmt) = self.as_any().downcast_ref::<ExpressionStatement>() {
+            return write!(f, "{}", stmt);
+        }
+        if let Some(stmt) = self.as_any().downcast_ref::<LetStatement>() {
+            return write!(f, "{}", stmt);
+        }
+        if let Some(stmt) = self.as_any().downcast_ref::<ReturnStatement>() {
+            return write!(f, "{}", stmt);
+        }
+        write!(f, "{}", self.token_literal())
+    }
+}
+
+impl fmt::Display for LetStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} {} = ",
+            self.token_literal(),
+            self.name.token_literal()
+        )?;
+        if let Some(value) = &self.value {
+            write!(f, "{}", value)?;
+        }
+        write!(f, ";")
+    }
+}
+
+impl fmt::Display for ReturnStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} ", self.token_literal())?;
+        if let Some(value) = &self.return_value {
+            write!(f, "{}", value)?;
+        }
+        write!(f, ";")
+    }
+}
+
+impl fmt::Display for DummyExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "")
+    }
+}
+
+impl fmt::Display for ExpressionStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.expression)
+    }
+}
+
+impl fmt::Display for dyn Expression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(expr) = self.as_any().downcast_ref::<PrefixExpression>() {
+            return write!(f, "{}", expr);
+        }
+        if let Some(expr) = self.as_any().downcast_ref::<InfixExpression>() {
+            return write!(f, "{}", expr);
+        }
+        if let Some(expr) = self.as_any().downcast_ref::<IntegerLiteral>() {
+            return write!(f, "{}", expr);
+        }
+        if let Some(expr) = self.as_any().downcast_ref::<Identifier>() {
+            return write!(f, "{}", expr);
+        }
+        write!(f, "{}", self.token_literal())
+    }
+}
+
+impl fmt::Display for PrefixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({}{})", self.operator, self.right)
+    }
+}
+
+impl fmt::Display for InfixExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "({} {} {})", self.left, self.operator, self.right)
+    }
+}
+
+impl fmt::Display for IntegerLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }

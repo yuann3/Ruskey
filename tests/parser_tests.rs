@@ -1,6 +1,6 @@
 use ruskey::ast::{
-    Expression, ExpressionStatement, IntegerLiteral, LetStatement, Node, PrefixExpression,
-    ReturnStatement, Statement,
+    Expression, ExpressionStatement, InfixExpression, IntegerLiteral, LetStatement, Node,
+    PrefixExpression, ReturnStatement, Statement,
 };
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
@@ -299,4 +299,35 @@ fn test_infix_expression(exp: &Box<dyn Expression>, left: i64, operator: &str, r
     );
 
     test_integer_literal(&infix_exp.right, right);
+}
+
+#[test]
+fn test_operator_precedence_parsing() {
+    let tests = vec![
+        ("-a * b", "((-a) * b)"),
+        ("!-a", "(!(-a))"),
+        ("a + b + c", "((a + b) + c)"),
+        ("a + b - c", "((a + b) - c)"),
+        ("a * b * c", "((a * b) * c)"),
+        ("a * b / c", "((a * b) / c)"),
+        ("a + b / c", "(a + (b / c))"),
+        ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f)"),
+        ("3 + 4; -5 * 5", "(3 + 4)((-5) * 5)"),
+        ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4))"),
+        ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4))"),
+        (
+            "3 + 4 * 5 == 3 * 1 + 4 * 5",
+            "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+        ),
+    ];
+
+    for (input, expected) in tests {
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        let actual = program.to_string();
+        assert_eq!(actual, expected, "expected={}, got={}", expected, actual);
+    }
 }
