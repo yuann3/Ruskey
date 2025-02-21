@@ -1,4 +1,7 @@
-use ruskey::ast::{LetStatement, Node, ReturnStatement, Statement};
+use ruskey::ast::{
+    Expression, ExpressionStatement, IntegerLiteral, LetStatement, Node, PrefixExpression,
+    ReturnStatement, Statement,
+};
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
 
@@ -45,6 +48,7 @@ fn test_let_statement(stmt: &dyn Statement, name: &str) {
         .as_any()
         .downcast_ref::<LetStatement>()
         .unwrap_or_else(|| panic!("stmt is not LetStatement. got={:?}", stmt));
+    // We need to downcast to IntegerLiteral
 
     assert_eq!(
         stmt.token_literal(),
@@ -68,6 +72,7 @@ fn test_let_statement(stmt: &dyn Statement, name: &str) {
     );
 }
 
+#[test]
 fn test_return_statements() {
     let input = r#"
 return 5;
@@ -100,4 +105,92 @@ return 993322;
             return_stmt.token_literal()
         );
     }
+}
+
+#[test]
+fn test_parsing_prefix_expressions() {
+    struct PrefixTest {
+        input: &'static str,
+        operator: &'static str,
+        integer_value: i64,
+    }
+
+    let prefix_tests = vec![
+        PrefixTest {
+            input: "!5;",
+            operator: "!",
+            integer_value: 5,
+        },
+        PrefixTest {
+            input: "-15;",
+            operator: "-",
+            integer_value: 15,
+        },
+    ];
+
+    for test in prefix_tests {
+        let l = Lexer::new(test.input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        assert_eq!(
+            program.statements.len(),
+            1,
+            "program.statements does not contain {} statements. got={}",
+            1,
+            program.statements.len()
+        );
+
+        let stmt = program.statements[0]
+            .as_any()
+            .downcast_ref::<ExpressionStatement>()
+            .expect("statement is not ExpressionStatement");
+
+        let exp = stmt
+            .expression
+            .as_any()
+            .downcast_ref::<PrefixExpression>()
+            .expect("expression not PrefixExpression");
+
+        assert_eq!(
+            exp.operator, test.operator,
+            "exp.operator is not '{}'",
+            test.operator
+        );
+
+        // Using a pattern match to safely access the integer literal
+        let integer = exp
+            .right
+            .as_any()
+            .downcast_ref::<IntegerLiteral>()
+            .expect("right is not IntegerLiteral");
+
+        assert_eq!(
+            integer.value, test.integer_value,
+            "integer value not {}. got={}",
+            test.integer_value, integer.value
+        );
+    }
+}
+
+fn test_integer_literal(il: &Box<dyn Expression>, value: i64) {
+    let int_lit = il
+        .as_any()
+        .downcast_ref::<IntegerLiteral>()
+        .expect("expression not IntegerLiteral");
+
+    assert_eq!(
+        int_lit.value, value,
+        "integer_literal.value not {}. got={}",
+        value, int_lit.value
+    );
+
+    assert_eq!(
+        int_lit.token_literal(),
+        value.to_string(),
+        "integer_literal.token_literal not {}. got={}",
+        value,
+        int_lit.token_literal()
+    );
 }
