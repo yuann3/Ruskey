@@ -117,6 +117,21 @@ pub struct IntegerLiteral {
     pub value: i64,
 }
 
+/// A boolean literal (true or false)
+#[derive(Debug)]
+pub struct Boolean {
+    /// boolean token
+    pub token: Token,
+    /// boolean value
+    pub value: bool,
+}
+
+impl Node for Boolean {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
 impl Node for ExpressionStatement {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
@@ -239,6 +254,14 @@ impl Expression for Identifier {
     }
 }
 
+impl Expression for Boolean {
+    fn expression_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for s in &self.statements {
@@ -314,6 +337,9 @@ impl fmt::Display for dyn Expression {
         if let Some(expr) = self.as_any().downcast_ref::<Identifier>() {
             return write!(f, "{}", expr);
         }
+        if let Some(expr) = self.as_any().downcast_ref::<Boolean>() {
+            return write!(f, "{}", expr);
+        }
         write!(f, "{}", self.token_literal())
     }
 }
@@ -337,6 +363,12 @@ impl fmt::Display for IntegerLiteral {
 }
 
 impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
     }

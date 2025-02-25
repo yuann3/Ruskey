@@ -1,11 +1,11 @@
 //! Parser module for the Ruskey programming language
-//! 
+//!
 //! Implements a recursive descent parser with Pratt parsing for expressions.
 //! The parser converts tokens into an Abstract Syntax Tree (AST).
 
 use crate::ast::{
-    DummyExpression, Expression, ExpressionStatement, Identifier, InfixExpression, IntegerLiteral,
-    LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+    Boolean, DummyExpression, Expression, ExpressionStatement, Identifier, InfixExpression,
+    IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -86,6 +86,9 @@ impl Parser {
         p.register_infix(TokenType::Lt, Parser::parse_infix_expression);
         p.register_infix(TokenType::Gt, Parser::parse_infix_expression);
         p.register_prefix(TokenType::Ident, Parser::parse_identifier);
+
+        p.register_prefix(TokenType::True, Parser::parse_boolean);
+        p.register_prefix(TokenType::False, Parser::parse_boolean);
 
         p
     }
@@ -305,6 +308,13 @@ impl Parser {
 
     fn peek_token_is(&self, token_type: &TokenType) -> bool {
         &self.peek_token.token_type == token_type
+    }
+
+    fn parse_boolean(&mut self) -> Option<Box<dyn Expression>> {
+        Some(Box::new(Boolean {
+            token: self.cur_token.clone(),
+            value: self.cur_token_is(TokenType::True),
+        }))
     }
 
     fn cur_token_is(&self, t: TokenType) -> bool {

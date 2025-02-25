@@ -1,5 +1,5 @@
 use ruskey::ast::{
-    Expression, ExpressionStatement, InfixExpression, IntegerLiteral, LetStatement, Node,
+    Boolean, Expression, ExpressionStatement, InfixExpression, IntegerLiteral, LetStatement, Node,
     PrefixExpression, ReturnStatement, Statement,
 };
 use ruskey::lexer::Lexer;
@@ -330,4 +330,38 @@ fn test_operator_precedence_parsing() {
         let actual = program.to_string();
         assert_eq!(actual, expected, "expected={}, got={}", expected, actual);
     }
+}
+
+#[test]
+fn test_boolean_expression() {
+    let input = "true;";
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    assert_eq!(
+        program.statements.len(),
+        1,
+        "program statements does not contain 1 statement. got={}",
+        program.statements.len()
+    );
+
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("statement is not ExpressionStatement");
+
+    let boolean = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<Boolean>()
+        .expect("expression not Boolean");
+
+    assert_eq!(
+        boolean.value, true,
+        "boolean.value not {}. got={}",
+        true, boolean.value
+    );
 }
