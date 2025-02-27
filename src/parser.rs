@@ -4,8 +4,9 @@
 //! The parser converts tokens into an Abstract Syntax Tree (AST).
 
 use crate::ast::{
-    Boolean, DummyExpression, Expression, ExpressionStatement, Identifier, InfixExpression,
-    IntegerLiteral, LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+    BlockStatement, Boolean, DummyExpression, Expression, ExpressionStatement, Identifier,
+    IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression, Program,
+    ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -73,10 +74,17 @@ impl Parser {
             infix_parse_fns: HashMap::new(),
         };
 
+        // Register prefix parse functions
         p.register_prefix(TokenType::Int, Parser::parse_integer_literal);
         p.register_prefix(TokenType::Bang, Parser::parse_prefix_expression);
         p.register_prefix(TokenType::Minus, Parser::parse_prefix_expression);
+        p.register_prefix(TokenType::True, Parser::parse_boolean);
+        p.register_prefix(TokenType::False, Parser::parse_boolean);
+        p.register_prefix(TokenType::Lparen, Parser::parse_grouped_expression);
+        p.register_prefix(TokenType::If, Parser::parse_if_expression);
+        p.register_prefix(TokenType::Ident, Parser::parse_identifier);
 
+        // Register infix parse functions
         p.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         p.register_infix(TokenType::Minus, Parser::parse_infix_expression);
         p.register_infix(TokenType::Slash, Parser::parse_infix_expression);
@@ -85,10 +93,6 @@ impl Parser {
         p.register_infix(TokenType::NotEq, Parser::parse_infix_expression);
         p.register_infix(TokenType::Lt, Parser::parse_infix_expression);
         p.register_infix(TokenType::Gt, Parser::parse_infix_expression);
-        p.register_prefix(TokenType::Ident, Parser::parse_identifier);
-
-        p.register_prefix(TokenType::True, Parser::parse_boolean);
-        p.register_prefix(TokenType::False, Parser::parse_boolean);
 
         p
     }
@@ -175,6 +179,18 @@ impl Parser {
             }
             None => None,
         }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<Box<dyn Expression>> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest);
+
+        if !self.expect_peek(TokenType::Rparen) {
+            return None;
+        }
+
+        exp
     }
 
     fn parse_let_statement(&mut self) -> Option<Box<dyn Statement>> {
@@ -283,6 +299,64 @@ impl Parser {
             }
             None => None,
         }
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Box<dyn Expression>> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::Lparen) {
+            return None;
+        }
+
+        // Parse the condition
+        self.next_token();
+        let condition = self.parse_expression(Precedence::Lowest)?;
+
+        if !self.expect_peek(TokenType::Rparen) {
+            return None;
+        }
+
+        if !self.expect_peek(TokenType::Lbrace) {
+            return None;
+        }
+
+        let consequence = self.parse_block_statement();
+
+        // Check if there's an 'else'
+        let alternative = if self.peek_token_is(&TokenType::Else) {
+            self.next_token(); // Now current token is 'else'
+
+            if !self.expect_peek(TokenType::Lbrace) {
+                return None;
+            }
+
+            Some(self.parse_block_statement())
+        } else {
+            None
+        };
+
+        Some(Box::new(IfExpression {
+            token,
+            condition,
+            consequence,
+            alternative,
+        }))
+    }
+
+    fn parse_block_statement(&mut self) -> BlockStatement {
+        let token = self.cur_token.clone();
+        let mut statements = Vec::new();
+
+        self.next_token();
+
+        while !self.cur_token_is(TokenType::Rbrace) && !self.cur_token_is(TokenType::Eof) {
+            if let Some(stmt) = self.parse_statement() {
+                statements.push(stmt);
+            }
+            self.next_token();
+        }
+
+        BlockStatement { token, statements }
     }
 
     fn register_prefix(&mut self, token_type: TokenType, function: PrefixParseFn) {

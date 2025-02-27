@@ -117,13 +117,47 @@ pub struct IntegerLiteral {
     pub value: i64,
 }
 
-/// A boolean literal (true or false)
+/// boolean literal (true or false)
 #[derive(Debug)]
 pub struct Boolean {
     /// boolean token
     pub token: Token,
     /// boolean value
     pub value: bool,
+}
+
+// block statement, a collection of statments
+#[derive(Debug)]
+pub struct BlockStatement {
+    /// opening '{' token
+    pub token: Token,
+    /// statements in the block
+    pub statements: Vec<Box<dyn Statement>>,
+}
+
+/// if expression (if (condition) { consequence } else { alternative })
+#[derive(Debug)]
+pub struct IfExpression {
+    /// 'if' token
+    pub token: Token,
+    /// condition expression
+    pub condition: Box<dyn Expression>,
+    /// consequence block
+    pub consequence: BlockStatement,
+    /// optional alternative block
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Node for IfExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Node for BlockStatement {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
 }
 
 impl Node for Boolean {
@@ -190,15 +224,15 @@ impl Node for ReturnStatement {
     }
 }
 
-impl Expression for DummyExpression {
-    fn expression_node(&self) {}
+impl Statement for ExpressionStatement {
+    fn statement_node(&self) {}
 
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
 
-impl Statement for ExpressionStatement {
+impl Statement for BlockStatement {
     fn statement_node(&self) {}
 
     fn as_any(&self) -> &dyn Any {
@@ -216,6 +250,14 @@ impl Statement for LetStatement {
 
 impl Statement for ReturnStatement {
     fn statement_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+impl Expression for DummyExpression {
+    fn expression_node(&self) {}
 
     fn as_any(&self) -> &dyn Any {
         self
@@ -262,6 +304,14 @@ impl Expression for Boolean {
     }
 }
 
+impl Expression for IfExpression {
+    fn expression_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for s in &self.statements {
@@ -281,6 +331,12 @@ impl fmt::Display for dyn Statement {
         }
         if let Some(stmt) = self.as_any().downcast_ref::<ReturnStatement>() {
             return write!(f, "{}", stmt);
+        }
+        if let Some(stmt) = self.as_any().downcast_ref::<BlockStatement>() {
+            return write!(f, "{}", stmt);
+        }
+        if let Some(expr) = self.as_any().downcast_ref::<IfExpression>() {
+            return write!(f, "{}", expr);
         }
         write!(f, "{}", self.token_literal())
     }
@@ -340,6 +396,9 @@ impl fmt::Display for dyn Expression {
         if let Some(expr) = self.as_any().downcast_ref::<Boolean>() {
             return write!(f, "{}", expr);
         }
+        if let Some(expr) = self.as_any().downcast_ref::<IfExpression>() {
+            return write!(f, "{}", expr);
+        }
         write!(f, "{}", self.token_literal())
     }
 }
@@ -371,5 +430,27 @@ impl fmt::Display for Identifier {
 impl fmt::Display for Boolean {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.value)
+    }
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{{ ")?; // Add opening brace
+        for stmt in &self.statements {
+            write!(f, "{}", stmt)?;
+        }
+        write!(f, " }}")
+    }
+}
+
+impl fmt::Display for IfExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "if{} {}", self.condition, self.consequence)?;
+
+        if let Some(alt) = &self.alternative {
+            write!(f, "else {}", alt)?;
+        }
+
+        Ok(())
     }
 }

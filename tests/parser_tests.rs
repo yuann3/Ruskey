@@ -1,6 +1,6 @@
 use ruskey::ast::{
-    Boolean, Expression, ExpressionStatement, InfixExpression, IntegerLiteral, LetStatement, Node,
-    PrefixExpression, ReturnStatement, Statement,
+    Boolean, Expression, ExpressionStatement, Identifier, IfExpression, InfixExpression,
+    IntegerLiteral, LetStatement, Node, PrefixExpression, ReturnStatement, Statement,
 };
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
@@ -284,7 +284,7 @@ fn test_parsing_infix_expressions() {
     }
 }
 
-fn test_infix_expression(exp: &Box<dyn Expression>, left: i64, operator: &str, right: i64) {
+fn test_infix_expression_int(exp: &Box<dyn Expression>, left: i64, operator: &str, right: i64) {
     let infix_exp = exp
         .as_any()
         .downcast_ref::<InfixExpression>()
@@ -319,6 +319,11 @@ fn test_operator_precedence_parsing() {
             "3 + 4 * 5 == 3 * 1 + 4 * 5",
             "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
         ),
+        ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4)"),
+        ("(5 + 5) * 2", "((5 + 5) * 2)"),
+        ("2 / (5 + 5)", "(2 / (5 + 5))"),
+        ("-(5 + 5)", "(-(5 + 5))"),
+        ("!(true == true)", "(!(true == true))"),
     ];
 
     for (input, expected) in tests {
@@ -363,5 +368,218 @@ fn test_boolean_expression() {
         boolean.value, true,
         "boolean.value not {}. got={}",
         true, boolean.value
+    );
+}
+
+#[test]
+fn test_if_expression() {
+    let input = "if (x < y) { x }";
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    assert_eq!(
+        program.statements.len(),
+        1,
+        "program.statements does not contain 1 statement. got={}",
+        program.statements.len()
+    );
+
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("statement is not ExpressionStatement");
+
+    let if_exp = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<IfExpression>()
+        .expect("expression not IfExpression");
+
+    // Test the condition (x < y)
+    test_infix_expression(&if_exp.condition, "x", "<", "y");
+
+    // Test the consequence
+    let consequence = &if_exp.consequence;
+    assert_eq!(
+        consequence.statements.len(),
+        1,
+        "consequence is not 1 statement. got={}",
+        consequence.statements.len()
+    );
+
+    let consequence_stmt = consequence.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("consequence statements[0] is not ExpressionStatement");
+
+    test_identifier(&consequence_stmt.expression, "x");
+
+    // Test that alternative is None
+    assert!(
+        if_exp.alternative.is_none(),
+        "if_exp.alternative was not None. got={:?}",
+        if_exp.alternative
+    );
+}
+
+// Add test for if-else expression
+#[test]
+fn test_if_else_expression() {
+    let input = "if (x < y) { x } else { y }";
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("statement is not ExpressionStatement");
+
+    let if_exp = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<IfExpression>()
+        .expect("expression not IfExpression");
+
+    // Test the condition
+    test_infix_expression(&if_exp.condition, "x", "<", "y");
+
+    // Test the consequence
+    let consequence = &if_exp.consequence;
+    assert_eq!(
+        consequence.statements.len(),
+        1,
+        "consequence is not 1 statement. got={}",
+        consequence.statements.len()
+    );
+
+    let consequence_stmt = consequence.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("consequence statements[0] is not ExpressionStatement");
+
+    test_identifier(&consequence_stmt.expression, "x");
+
+    // Test the alternative
+    let alternative = if_exp
+        .alternative
+        .as_ref()
+        .expect("if_exp.alternative was None");
+
+    assert_eq!(
+        alternative.statements.len(),
+        1,
+        "alternative is not 1 statement. got={}",
+        alternative.statements.len()
+    );
+
+    let alternative_stmt = alternative.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("alternative statements[0] is not ExpressionStatement");
+
+    test_identifier(&alternative_stmt.expression, "y");
+}
+
+// Helper function to test identifiers
+fn test_identifier(exp: &Box<dyn Expression>, value: &str) {
+    let ident = exp
+        .as_any()
+        .downcast_ref::<Identifier>()
+        .expect("expression not Identifier");
+
+    assert_eq!(
+        ident.value, value,
+        "ident.value not {}. got={}",
+        value, ident.value
+    );
+
+    assert_eq!(
+        ident.token_literal(),
+        value,
+        "ident.token_literal not {}. got={}",
+        value,
+        ident.token_literal()
+    );
+}
+
+fn test_infix_expression(
+    exp: &Box<dyn Expression>,
+    left: impl Into<Value>,
+    operator: &str,
+    right: impl Into<Value>,
+) {
+    let op_exp = exp
+        .as_any()
+        .downcast_ref::<InfixExpression>()
+        .expect("expression is not InfixExpression");
+
+    test_literal_expression(&op_exp.left, left);
+
+    assert_eq!(
+        op_exp.operator, operator,
+        "exp.operator is not '{}'. got={}",
+        operator, op_exp.operator
+    );
+
+    test_literal_expression(&op_exp.right, right);
+}
+
+// A helper enum to handle different types of values
+enum Value {
+    Int(i64),
+    String(String),
+    Bool(bool),
+}
+
+impl From<i64> for Value {
+    fn from(i: i64) -> Self {
+        Value::Int(i)
+    }
+}
+
+impl From<&str> for Value {
+    fn from(s: &str) -> Self {
+        Value::String(s.to_string())
+    }
+}
+
+impl From<bool> for Value {
+    fn from(b: bool) -> Self {
+        Value::Bool(b)
+    }
+}
+
+fn test_literal_expression(exp: &Box<dyn Expression>, expected: impl Into<Value>) {
+    match expected.into() {
+        Value::Int(int) => test_integer_literal(exp, int),
+        Value::String(string) => test_identifier(exp, &string),
+        Value::Bool(boolean) => test_boolean_literal(exp, boolean),
+    }
+}
+
+fn test_boolean_literal(exp: &Box<dyn Expression>, value: bool) {
+    let bo = exp
+        .as_any()
+        .downcast_ref::<Boolean>()
+        .expect("expression not Boolean");
+
+    assert_eq!(
+        bo.value, value,
+        "boolean.value not {}. got={}",
+        value, bo.value
+    );
+
+    assert_eq!(
+        bo.token_literal(),
+        value.to_string(),
+        "boolean.token_literal not {}. got={}",
+        value,
+        bo.token_literal()
     );
 }
