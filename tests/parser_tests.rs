@@ -284,23 +284,6 @@ fn test_parsing_infix_expressions() {
     }
 }
 
-fn test_infix_expression_int(exp: &Box<dyn Expression>, left: i64, operator: &str, right: i64) {
-    let infix_exp = exp
-        .as_any()
-        .downcast_ref::<InfixExpression>()
-        .expect("expression not InfixExpression");
-
-    test_integer_literal(&infix_exp.left, left);
-
-    assert_eq!(
-        infix_exp.operator, operator,
-        "operator is not '{}'. got={}",
-        operator, infix_exp.operator
-    );
-
-    test_integer_literal(&infix_exp.right, right);
-}
-
 #[test]
 fn test_operator_precedence_parsing() {
     let tests = vec![
