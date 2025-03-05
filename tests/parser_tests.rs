@@ -1,6 +1,7 @@
 use ruskey::ast::{
-    Boolean, Expression, ExpressionStatement, Identifier, IfExpression, InfixExpression,
-    IntegerLiteral, LetStatement, Node, PrefixExpression, ReturnStatement, Statement,
+    Boolean, Expression, ExpressionStatement, FunctionLiteral, Identifier, IfExpression,
+    InfixExpression, IntegerLiteral, LetStatement, Node, PrefixExpression, ReturnStatement,
+    Statement,
 };
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
@@ -565,4 +566,108 @@ fn test_boolean_literal(exp: &Box<dyn Expression>, value: bool) {
         value,
         bo.token_literal()
     );
+}
+
+#[test]
+fn test_function_literal_parsing() {
+    let input = "fn(x, y) { x + y; }";
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    // Check if program has one statement
+    assert_eq!(
+        program.statements.len(),
+        1,
+        "program.statements does not contain 1 statement. got={}",
+        program.statements.len()
+    );
+
+    // Get the expression statement
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("statement is not ExpressionStatement");
+
+    // Check if the expression is a function literal
+    let function = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<FunctionLiteral>()
+        .expect("exp not FunctionLiteral");
+
+    // Check if the function has the correct number of parameters
+    assert_eq!(
+        function.parameters.len(),
+        2,
+        "function literal parameters wrong. want 2, got={}",
+        function.parameters.len()
+    );
+
+    // Check the parameter names directly
+    assert_eq!(function.parameters[0].value, "x");
+    assert_eq!(function.parameters[1].value, "y");
+
+    // Check the body
+    assert_eq!(
+        function.body.statements.len(),
+        1,
+        "function.body.statements has not 1 statement. got={}",
+        function.body.statements.len()
+    );
+
+    let body_stmt = function.body.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("function body stmt is not ast.ExpressionStatement");
+
+    test_infix_expression(&body_stmt.expression, "x", "+", "y");
+}
+
+// Update the function parameter test also
+#[test]
+fn test_function_parameter_parsing() {
+    // Test cases with different parameter counts
+    let tests = vec![
+        ("fn() {};", vec![]),
+        ("fn(x) {};", vec!["x"]),
+        ("fn(x, y, z) {};", vec!["x", "y", "z"]),
+    ];
+
+    for (input, expected_params) in tests {
+        let l = Lexer::new(input.to_string());
+        let mut p = Parser::new(l);
+        let program = p.parse_program();
+        check_parser_errors(&p);
+
+        let stmt = program.statements[0]
+            .as_any()
+            .downcast_ref::<ExpressionStatement>()
+            .expect("statement is not ExpressionStatement");
+
+        let function = stmt
+            .expression
+            .as_any()
+            .downcast_ref::<FunctionLiteral>()
+            .expect("exp not FunctionLiteral");
+
+        assert_eq!(
+            function.parameters.len(),
+            expected_params.len(),
+            "length parameters wrong. want {}, got={}",
+            expected_params.len(),
+            function.parameters.len()
+        );
+
+        // Test parameter values directly
+        for (i, ident) in expected_params.iter().enumerate() {
+            assert_eq!(
+                function.parameters[i].value, *ident,
+                "parameter {} value wrong: expected {}, got {}",
+                i, ident, function.parameters[i].value
+            );
+        }
+    }
 }

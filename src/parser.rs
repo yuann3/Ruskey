@@ -4,9 +4,9 @@
 //! The parser converts tokens into an Abstract Syntax Tree (AST).
 
 use crate::ast::{
-    BlockStatement, Boolean, DummyExpression, Expression, ExpressionStatement, Identifier,
-    IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression, Program,
-    ReturnStatement, Statement,
+    BlockStatement, Boolean, DummyExpression, Expression, ExpressionStatement, FunctionLiteral,
+    Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression,
+    Program, ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -83,6 +83,7 @@ impl Parser {
         p.register_prefix(TokenType::Lparen, Parser::parse_grouped_expression);
         p.register_prefix(TokenType::If, Parser::parse_if_expression);
         p.register_prefix(TokenType::Ident, Parser::parse_identifier);
+        p.register_prefix(TokenType::Function, Parser::parse_function_literal);
 
         // Register infix parse functions
         p.register_infix(TokenType::Plus, Parser::parse_infix_expression);
@@ -357,6 +358,64 @@ impl Parser {
         }
 
         BlockStatement { token, statements }
+    }
+
+    fn parse_function_literal(&mut self) -> Option<Box<dyn Expression>> {
+        let token = self.cur_token.clone();
+
+        if !self.expect_peek(TokenType::Lparen) {
+            return None;
+        }
+
+        let parameters = self.parse_function_parameters()?;
+
+        if !self.expect_peek(TokenType::Lbrace) {
+            return None;
+        }
+
+        let body = self.parse_block_statement();
+
+        Some(Box::new(FunctionLiteral {
+            token,
+            parameters,
+            body,
+        }))
+    }
+
+    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
+        let mut identifiers = Vec::new();
+
+        if self.peek_token_is(&TokenType::Rparen) {
+            self.next_token();
+            return Some(identifiers);
+        }
+
+        // parse first parameter
+        self.next_token();
+
+        let ident = Identifier {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        };
+        identifiers.push(ident);
+
+        // parse subsequent parameters
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token();
+            self.next_token();
+
+            let ident = Identifier {
+                token: self.cur_token.clone(),
+                value: self.cur_token.literal.clone(),
+            };
+            identifiers.push(ident);
+        }
+
+        if !self.expect_peek(TokenType::Rparen) {
+            return None;
+        }
+
+        Some(identifiers)
     }
 
     fn register_prefix(&mut self, token_type: TokenType, function: PrefixParseFn) {

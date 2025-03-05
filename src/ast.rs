@@ -45,7 +45,7 @@ pub struct ReturnStatement {
 }
 
 /// An identifier (e.g., variable names)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     /// The identifier's token
     pub token: Token,
@@ -146,6 +146,23 @@ pub struct IfExpression {
     pub consequence: BlockStatement,
     /// optional alternative block
     pub alternative: Option<BlockStatement>,
+}
+
+/// function literal (eg. "fn(x, y) { x + y; }"
+#[derive(Debug)]
+pub struct FunctionLiteral {
+    /// 'fn' token
+    pub token: Token,
+    /// function parameters
+    pub parameters: Vec<Identifier>,
+    /// function body
+    pub body: BlockStatement,
+}
+
+impl Node for FunctionLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
 }
 
 impl Node for IfExpression {
@@ -312,6 +329,14 @@ impl Expression for IfExpression {
     }
 }
 
+impl Expression for FunctionLiteral {
+    fn expression_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for s in &self.statements {
@@ -399,6 +424,9 @@ impl fmt::Display for dyn Expression {
         if let Some(expr) = self.as_any().downcast_ref::<IfExpression>() {
             return write!(f, "{}", expr);
         }
+        if let Some(expr) = self.as_any().downcast_ref::<FunctionLiteral>() {
+            return write!(f, "{}", expr);
+        }
         write!(f, "{}", self.token_literal())
     }
 }
@@ -452,5 +480,19 @@ impl fmt::Display for IfExpression {
         }
 
         Ok(())
+    }
+}
+
+impl fmt::Display for FunctionLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let params: Vec<String> = self.parameters.iter().map(|p| p.to_string()).collect();
+
+        write!(
+            f,
+            "{}({}) {}",
+            self.token_literal(),
+            params.join(", "),
+            self.body
+        )
     }
 }
