@@ -214,20 +214,13 @@ impl Parser {
 
         self.next_token();
 
-        let value = match self.parse_expression(Precedence::Lowest) {
-            Some(expr) => Some(expr),
-            None => None,
-        };
+        let value = self.parse_expression(Precedence::Lowest);
 
         if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
-        let stmt = LetStatement {
-            token,
-            name,
-            value: None,
-        };
+        let stmt = LetStatement { token, name, value };
 
         Some(Box::new(stmt))
     }
