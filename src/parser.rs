@@ -4,9 +4,9 @@
 //! The parser converts tokens into an Abstract Syntax Tree (AST).
 
 use crate::ast::{
-    BlockStatement, Boolean, DummyExpression, Expression, ExpressionStatement, FunctionLiteral,
-    Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement, PrefixExpression,
-    Program, ReturnStatement, Statement,
+    BlockStatement, Boolean, CallExpression, DummyExpression, Expression, ExpressionStatement,
+    FunctionLiteral, Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement,
+    PrefixExpression, Program, ReturnStatement, Statement,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -54,6 +54,7 @@ impl Precedence {
             TokenType::Lt | TokenType::Gt => Precedence::LessGreater,
             TokenType::Plus | TokenType::Minus => Precedence::Sum,
             TokenType::Slash | TokenType::Asterisk => Precedence::Product,
+            TokenType::Lparen => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -94,6 +95,7 @@ impl Parser {
         p.register_infix(TokenType::NotEq, Parser::parse_infix_expression);
         p.register_infix(TokenType::Lt, Parser::parse_infix_expression);
         p.register_infix(TokenType::Gt, Parser::parse_infix_expression);
+        p.register_infix(TokenType::Lparen, Parser::parse_call_expression);
 
         p
     }
@@ -416,6 +418,49 @@ impl Parser {
         }
 
         Some(identifiers)
+    }
+
+    fn parse_call_expression(
+        &mut self,
+        function: Box<dyn Expression>,
+    ) -> Option<Box<dyn Expression>> {
+        let exp = CallExpression {
+            token: self.cur_token.clone(),
+            function,
+            arguments: self.parse_call_arguments(),
+        };
+
+        Some(Box::new(exp))
+    }
+
+    fn parse_call_arguments(&mut self) -> Vec<Box<dyn Expression>> {
+        let mut args = Vec::new();
+
+        if self.peek_token_is(&TokenType::Rparen) {
+            self.next_token();
+            return args;
+        }
+
+        // parse first argument
+        self.next_token();
+        if let Some(arg) = self.parse_expression(Precedence::Lowest) {
+            args.push(arg);
+        }
+
+        while self.peek_token_is(&TokenType::Comma) {
+            self.next_token(); // consume comma
+            self.next_token();
+
+            if let Some(arg) = self.parse_expression(Precedence::Lowest) {
+                args.push(arg);
+            }
+        }
+
+        if !self.expect_peek(TokenType::Rparen) {
+            return Vec::new();
+        }
+
+        args
     }
 
     fn register_prefix(&mut self, token_type: TokenType, function: PrefixParseFn) {

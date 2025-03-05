@@ -1,7 +1,7 @@
 use ruskey::ast::{
-    Boolean, Expression, ExpressionStatement, FunctionLiteral, Identifier, IfExpression,
-    InfixExpression, IntegerLiteral, LetStatement, Node, PrefixExpression, ReturnStatement,
-    Statement,
+    Boolean, CallExpression, Expression, ExpressionStatement, FunctionLiteral, Identifier,
+    IfExpression, InfixExpression, IntegerLiteral, LetStatement, Node, PrefixExpression,
+    ReturnStatement, Statement,
 };
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
@@ -308,6 +308,15 @@ fn test_operator_precedence_parsing() {
         ("2 / (5 + 5)", "(2 / (5 + 5))"),
         ("-(5 + 5)", "(-(5 + 5))"),
         ("!(true == true)", "(!(true == true))"),
+        ("a + add(b * c) + d", "((a + add((b * c))) + d)"),
+        (
+            "add(a, b, 1, 2 * 3, 4 + 5, add(6, 7 * 8))",
+            "add(a, b, 1, (2 * 3), (4 + 5), add(6, (7 * 8)))",
+        ),
+        (
+            "add(a + b + c * d / f + g)",
+            "add((((a + b) + ((c * d) / f)) + g))",
+        ),
     ];
 
     for (input, expected) in tests {
@@ -626,7 +635,6 @@ fn test_function_literal_parsing() {
     test_infix_expression(&body_stmt.expression, "x", "+", "y");
 }
 
-// Update the function parameter test also
 #[test]
 fn test_function_parameter_parsing() {
     // Test cases with different parameter counts
@@ -670,4 +678,49 @@ fn test_function_parameter_parsing() {
             );
         }
     }
+}
+
+#[test]
+fn test_call_expression_parsing() {
+    let input = "add(1, 2 * 3, 4 + 5);";
+
+    let l = Lexer::new(input.to_string());
+    let mut p = Parser::new(l);
+    let program = p.parse_program();
+    check_parser_errors(&p);
+
+    assert_eq!(
+        program.statements.len(),
+        1,
+        "program.statements does not contain 1 statement. got={}",
+        program.statements.len()
+    );
+
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("statement is not ExpressionStatement");
+
+    // Check if it's a call expression
+    let exp = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<CallExpression>()
+        .expect("expression is not CallExpression");
+
+    // Test the function part (should be an identifier "add")
+    test_identifier(&exp.function, "add");
+
+    // Test that we have the right number of arguments
+    assert_eq!(
+        exp.arguments.len(),
+        3,
+        "wrong length of arguments. got={}",
+        exp.arguments.len()
+    );
+
+    // Test each argument
+    test_literal_expression(&exp.arguments[0], 1);
+    test_infix_expression(&exp.arguments[1], 2, "*", 3);
+    test_infix_expression(&exp.arguments[2], 4, "+", 5);
 }

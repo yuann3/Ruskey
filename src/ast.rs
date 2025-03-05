@@ -159,6 +159,23 @@ pub struct FunctionLiteral {
     pub body: BlockStatement,
 }
 
+/// call expression (eg. "add(1, 2)", "fn(x, y) { x + y; }(1, 2)")
+#[derive(Debug)]
+pub struct CallExpression {
+    /// '(' token
+    pub token: Token,
+    /// the expression that produces the function
+    pub function: Box<dyn Expression>,
+    /// argument expression
+    pub arguments: Vec<Box<dyn Expression>>,
+}
+
+impl Node for CallExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
 impl Node for FunctionLiteral {
     fn token_literal(&self) -> String {
         self.token.literal.clone()
@@ -337,6 +354,14 @@ impl Expression for FunctionLiteral {
     }
 }
 
+impl Expression for CallExpression {
+    fn expression_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 impl fmt::Display for Program {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for s in &self.statements {
@@ -427,6 +452,9 @@ impl fmt::Display for dyn Expression {
         if let Some(expr) = self.as_any().downcast_ref::<FunctionLiteral>() {
             return write!(f, "{}", expr);
         }
+        if let Some(expr) = self.as_any().downcast_ref::<CallExpression>() {
+            return write!(f, "{}", expr);
+        }
         write!(f, "{}", self.token_literal())
     }
 }
@@ -494,5 +522,13 @@ impl fmt::Display for FunctionLiteral {
             params.join(", "),
             self.body
         )
+    }
+}
+
+impl fmt::Display for CallExpression {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let args: Vec<String> = self.arguments.iter().map(|a| a.to_string()).collect();
+
+        write!(f, "{}({})", self.function, args.join(", "))
     }
 }
