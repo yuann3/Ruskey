@@ -41,7 +41,7 @@ pub struct ReturnStatement {
     /// The 'return' token
     pub token: Token,
     /// The value being returned (optional)
-    pub return_value: Option<Box<DummyExpression>>,
+    pub return_value: Option<Box<dyn Expression>>,
 }
 
 /// An identifier (e.g., variable names)
@@ -61,7 +61,7 @@ pub struct LetStatement {
     /// The identifier being bound
     pub name: Identifier,
     /// The value being assigned (optional)
-    pub value: Option<Box<DummyExpression>>,
+    pub value: Option<Box<dyn Expression>>,
 }
 
 /// The root node of our AST

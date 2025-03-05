@@ -2,14 +2,15 @@ use ruskey::repl::Repl;
 use std::io::{self};
 
 fn main() -> io::Result<()> {
-    println!("Ruskey Console");
+    println!("Ruskey Console - AST Parser Mode");
+    println!("Type in commands to see their AST representation");
 
     let mut repl = Repl::new();
-    let mut stdin = io::stdin().lock();
-    let stdout = io::stdout();
-    let mut handle = stdout.lock();
+    let stdin = io::stdin();
+    let mut handle = stdin.lock();
+    let mut stdout = io::stdout();
 
-    repl.start(&mut stdin, &mut handle)?;
+    repl.start_parser_mode(&mut handle, &mut stdout)?;
 
     Ok(())
 }

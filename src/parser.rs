@@ -212,7 +212,14 @@ impl Parser {
             return None;
         }
 
-        while self.cur_token.token_type != TokenType::Semicolon {
+        self.next_token();
+
+        let value = match self.parse_expression(Precedence::Lowest) {
+            Some(expr) => Some(expr),
+            None => None,
+        };
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
@@ -228,13 +235,20 @@ impl Parser {
     fn parse_return_statement(&mut self) -> Option<Box<dyn Statement>> {
         let token = self.cur_token.clone();
 
-        while !self.cur_token_is(TokenType::Semicolon) {
+        self.next_token();
+
+        let return_value = match self.parse_expression(Precedence::Lowest) {
+            Some(expr) => Some(expr),
+            None => None,
+        };
+
+        if self.peek_token_is(&TokenType::Semicolon) {
             self.next_token();
         }
 
         let stmt = ReturnStatement {
             token,
-            return_value: None,
+            return_value,
         };
 
         Some(Box::new(stmt))
