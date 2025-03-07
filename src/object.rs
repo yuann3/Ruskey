@@ -1,3 +1,4 @@
+use std::any::Any;
 use std::fmt;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -24,6 +25,9 @@ pub trait Object: fmt::Debug {
 
     /// Returns a string representation of the object
     fn inspect(&self) -> String;
+
+    /// Returns self as Any for downcasting
+    fn as_any(&self) -> &dyn Any;
 }
 
 /// Integer object
@@ -45,6 +49,10 @@ impl Object for Integer {
 
     fn inspect(&self) -> String {
         self.value.to_string()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -68,6 +76,10 @@ impl Object for Boolean {
     fn inspect(&self) -> String {
         self.value.to_string()
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 /// Null object
@@ -87,5 +99,9 @@ impl Object for Null {
 
     fn inspect(&self) -> String {
         "null".to_string()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
