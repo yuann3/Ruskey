@@ -1,3 +1,5 @@
+![CleanShot 2025-03-08 at 16 57 34@2x](https://github.com/user-attachments/assets/92e15a16-dcc9-45b3-9c5a-93fc98e06b58)
+
 # Ruskey 🦀
 
 An implementation of the Monkey programming language interpreter in Rust, based on the book "Writing An Interpreter In Go" by Thorsten Ball.
