@@ -1,6 +1,6 @@
 use ruskey::evaluator::eval;
 use ruskey::lexer::Lexer;
-use ruskey::object::{Boolean, Integer, Object};
+use ruskey::object::{Boolean, Integer, Null, Object};
 use ruskey::parser::Parser;
 
 #[test]
@@ -100,4 +100,60 @@ fn test_eval_integer_infix_expressions() {
             Expected::Bool(bool_val) => test_boolean_object(evaluated.as_ref(), bool_val),
         }
     }
+}
+
+#[test]
+fn test_if_else_expressions() {
+    struct Test {
+        input: &'static str,
+        expected: Option<i64>,
+    }
+
+    let tests = vec![
+        Test {
+            input: "if (true) { 10 }",
+            expected: Some(10),
+        },
+        Test {
+            input: "if (false) { 10 }",
+            expected: None,
+        },
+        Test {
+            input: "if (1) { 10 }",
+            expected: Some(10),
+        },
+        Test {
+            input: "if (1 < 2) { 10 }",
+            expected: Some(10),
+        },
+        Test {
+            input: "if (1 > 2) { 10 }",
+            expected: None,
+        },
+        Test {
+            input: "if (1 > 2) { 10 } else { 20 }",
+            expected: Some(20),
+        },
+        Test {
+            input: "if (1 < 2) { 10 } else { 20 }",
+            expected: Some(10),
+        },
+    ];
+
+    for test in tests {
+        let evaluated = test_eval(test.input);
+
+        match test.expected {
+            Some(integer) => test_integer_object(evaluated.as_ref(), integer),
+            None => test_null_object(evaluated.as_ref()),
+        }
+    }
+}
+
+fn test_null_object(obj: &dyn Object) {
+    assert!(
+        obj.as_any().downcast_ref::<Null>().is_some(),
+        "object is not Null, got={:?}",
+        obj
+    );
 }

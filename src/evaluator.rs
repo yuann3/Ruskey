@@ -55,7 +55,6 @@ fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
         return Box::new(Integer::new(int_lit.value));
     }
 
-    // Fixed: Use ast::Boolean instead of object::Boolean
     if let Some(bool_lit) = expression.as_any().downcast_ref::<ast::Boolean>() {
         return native_bool_to_boolean_object(bool_lit.value);
     }
@@ -71,7 +70,47 @@ fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
         return eval_infix_expression(&infix.operator, left, right);
     }
 
+    if let Some(if_expr) = expression.as_any().downcast_ref::<ast::IfExpression>() {
+        return eval_if_expression(if_expr);
+    }
+
     Box::new(null_obj().clone())
+}
+
+fn eval_if_expression(if_expression: &ast::IfExpression) -> Box<dyn Object> {
+    let condition = eval_expression(if_expression.condition.as_ref());
+
+    if is_truthy(condition) {
+        eval_block_statement(&if_expression.consequence)
+    } else if let Some(alt) = &if_expression.alternative {
+        eval_block_statement(alt)
+    } else {
+        Box::new(null_obj().clone())
+    }
+}
+
+fn eval_block_statement(block: &ast::BlockStatement) -> Box<dyn Object> {
+    let mut result: Box<dyn Object> = Box::new(null_obj().clone());
+
+    for statement in &block.statements {
+        result = eval_statement(statement.as_ref());
+    }
+
+    result
+}
+
+fn is_truthy(obj: Box<dyn Object>) -> bool {
+    match obj.type_() {
+        ObjectType::Null => false,
+        ObjectType::Boolean => {
+            if let Some(boolean) = obj.as_any().downcast_ref::<Boolean>() {
+                boolean.value
+            } else {
+                false
+            }
+        }
+        _ => true,
+    }
 }
 
 fn eval_infix_expression(
