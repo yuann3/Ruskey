@@ -6,6 +6,7 @@ pub enum ObjectType {
     Integer,
     Boolean,
     Null,
+    ReturnValue,
 }
 
 impl fmt::Display for ObjectType {
@@ -14,6 +15,7 @@ impl fmt::Display for ObjectType {
             ObjectType::Integer => write!(f, "INTEGER"),
             ObjectType::Boolean => write!(f, "BOOLEAN"),
             ObjectType::Null => write!(f, "NULL"),
+            ObjectType::ReturnValue => write!(f, "RETURN_VALUE"),
         }
     }
 }
@@ -99,6 +101,32 @@ impl Object for Null {
 
     fn inspect(&self) -> String {
         "null".to_string()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+// ReturnValue struct
+#[derive(Debug)]
+pub struct ReturnValue {
+    pub value: Box<dyn Object>,
+}
+
+impl ReturnValue {
+    pub fn new(value: Box<dyn Object>) -> Self {
+        ReturnValue { value }
+    }
+}
+
+impl Object for ReturnValue {
+    fn type_(&self) -> ObjectType {
+        ObjectType::ReturnValue
+    }
+
+    fn inspect(&self) -> String {
+        self.value.inspect()
     }
 
     fn as_any(&self) -> &dyn Any {

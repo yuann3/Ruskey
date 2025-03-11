@@ -157,3 +157,18 @@ fn test_null_object(obj: &dyn Object) {
         obj
     );
 }
+
+#[test]
+fn test_return_statements() {
+    let tests = vec![
+        ("return 10;", 10),
+        ("return 10; 9;", 10),
+        ("return 2 * 5; 9;", 10),
+        ("9; return 2 * 5; 9;", 10),
+    ];
+
+    for (input, expected) in tests {
+        let evaluated = test_eval(input);
+        test_integer_object(evaluated.as_ref(), expected);
+    }
+}

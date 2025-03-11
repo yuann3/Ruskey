@@ -1,8 +1,8 @@
 use crate::ast::{
-    self, Expression, ExpressionStatement, InfixExpression, IntegerLiteral, PrefixExpression,
-    Program, Statement,
+    self, BlockStatement, Expression, ExpressionStatement, InfixExpression, IntegerLiteral,
+    PrefixExpression, Program, ReturnStatement, Statement,
 };
-use crate::object::{Boolean, Integer, Null, Object, ObjectType};
+use crate::object::{Boolean, Integer, Null, Object, ObjectType, ReturnValue};
 use std::sync::OnceLock;
 
 /// Static TRUE and FALSE objects
@@ -37,16 +37,49 @@ pub fn eval(program: &Program) -> Box<dyn Object> {
 
 fn eval_program(program: &Program) -> Box<dyn Object> {
     let mut result: Box<dyn Object> = Box::new(null_obj().clone());
+
     for statement in &program.statements {
         result = eval_statement(statement.as_ref());
+
+        if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
+            // Instead of cloning, we'll create a new object based on the type
+            match return_value.value.type_() {
+                ObjectType::Integer => {
+                    if let Some(int) = return_value.value.as_any().downcast_ref::<Integer>() {
+                        return Box::new(Integer::new(int.value));
+                    }
+                }
+                ObjectType::Boolean => {
+                    if let Some(boolean) = return_value.value.as_any().downcast_ref::<Boolean>() {
+                        return native_bool_to_boolean_object(boolean.value);
+                    }
+                }
+                ObjectType::Null => {
+                    return Box::new(null_obj().clone());
+                }
+                _ => {}
+            }
+            // Default fallback
+            return Box::new(null_obj().clone());
+        }
     }
+
     result
 }
 
 fn eval_statement(statement: &dyn Statement) -> Box<dyn Object> {
     match statement.as_any().downcast_ref::<ExpressionStatement>() {
         Some(expr_stmt) => eval_expression(expr_stmt.expression.as_ref()),
-        None => Box::new(null_obj().clone()),
+        None => {
+            if let Some(return_stmt) = statement.as_any().downcast_ref::<ReturnStatement>() {
+                if let Some(return_val) = &return_stmt.return_value {
+                    let val = eval_expression(return_val.as_ref());
+                    return Box::new(ReturnValue::new(val));
+                }
+                return Box::new(null_obj().clone());
+            }
+            Box::new(null_obj().clone())
+        }
     }
 }
 
@@ -89,11 +122,15 @@ fn eval_if_expression(if_expression: &ast::IfExpression) -> Box<dyn Object> {
     }
 }
 
-fn eval_block_statement(block: &ast::BlockStatement) -> Box<dyn Object> {
+fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
     let mut result: Box<dyn Object> = Box::new(null_obj().clone());
 
     for statement in &block.statements {
         result = eval_statement(statement.as_ref());
+
+        if result.type_() == ObjectType::ReturnValue {
+            return result;
+        }
     }
 
     result
