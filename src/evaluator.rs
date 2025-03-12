@@ -1,7 +1,8 @@
 use crate::ast::{
     self, BlockStatement, Expression, ExpressionStatement, InfixExpression, IntegerLiteral,
-    PrefixExpression, Program, ReturnStatement, Statement,
+    LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
 };
+use crate::environment::Environment;
 use crate::object::{Boolean, Error, Integer, Null, Object, ObjectType, ReturnValue};
 use std::sync::OnceLock;
 
@@ -31,8 +32,8 @@ fn native_bool_to_boolean_object(input: bool) -> Box<dyn Object> {
     }
 }
 
-pub fn eval(program: &Program) -> Box<dyn Object> {
-    eval_program(program)
+pub fn eval(program: &Program, env: &mut Environment) -> Box<dyn Object> {
+    eval_program(program, env)
 }
 
 /// Create new error object
@@ -44,11 +45,11 @@ fn is_error(obj: &dyn Object) -> bool {
     obj.type_() == ObjectType::Error
 }
 
-fn eval_program(program: &Program) -> Box<dyn Object> {
+fn eval_program(program: &Program, env: &mut Environment) -> Box<dyn Object> {
     let mut result: Box<dyn Object> = Box::new(null_obj().clone());
 
     for statement in &program.statements {
-        result = eval_statement(statement.as_ref());
+        result = eval_statement(statement.as_ref(), env);
 
         if is_error(&*result) {
             return result;
@@ -80,29 +81,33 @@ fn eval_program(program: &Program) -> Box<dyn Object> {
     result
 }
 
-fn eval_statement(statement: &dyn Statement) -> Box<dyn Object> {
+fn eval_statement(statement: &dyn Statement, env: &mut Environment) -> Box<dyn Object> {
     match statement.as_any().downcast_ref::<ExpressionStatement>() {
-        Some(expr_stmt) => eval_expression(expr_stmt.expression.as_ref()),
+        Some(expr_stmt) => eval_expression(expr_stmt.expression.as_ref(), env),
         None => {
             if let Some(return_stmt) = statement.as_any().downcast_ref::<ReturnStatement>() {
                 if let Some(return_val) = &return_stmt.return_value {
-                    let val = eval_expression(return_val.as_ref());
-
-                    // error checking
-                    if is_error(&*val) {
-                        return val;
-                    }
-
+                    let val = eval_expression(return_val.as_ref(), env);
                     return Box::new(ReturnValue::new(val));
                 }
                 return Box::new(null_obj().clone());
             }
+
+            // Handle let statements
+            if let Some(let_stmt) = statement.as_any().downcast_ref::<LetStatement>() {
+                if let Some(val_expr) = &let_stmt.value {
+                    let val = eval_expression(val_expr.as_ref(), env);
+                    return env.set(let_stmt.name.value.clone(), val);
+                }
+                return Box::new(null_obj().clone());
+            }
+
             Box::new(null_obj().clone())
         }
     }
 }
 
-fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
+fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dyn Object> {
     if let Some(int_lit) = expression.as_any().downcast_ref::<IntegerLiteral>() {
         return Box::new(Integer::new(int_lit.value));
     }
@@ -111,56 +116,55 @@ fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
         return native_bool_to_boolean_object(bool_lit.value);
     }
 
+    // Handle identifiers
+    if let Some(ident) = expression.as_any().downcast_ref::<ast::Identifier>() {
+        return eval_identifier(ident, env);
+    }
+
     if let Some(prefix) = expression.as_any().downcast_ref::<PrefixExpression>() {
-        let right = eval_expression(prefix.right.as_ref());
-        if is_error(&*right) {
-            return right;
-        }
+        let right = eval_expression(prefix.right.as_ref(), env);
         return eval_prefix_expression(&prefix.operator, right);
     }
 
     if let Some(infix) = expression.as_any().downcast_ref::<InfixExpression>() {
-        let left = eval_expression(infix.left.as_ref());
-        if is_error(&*left) {
-            return left;
-        }
-        let right = eval_expression(infix.right.as_ref());
-        if is_error(&*right) {
-            return right;
-        }
+        let left = eval_expression(infix.left.as_ref(), env);
+        let right = eval_expression(infix.right.as_ref(), env);
         return eval_infix_expression(&infix.operator, left, right);
     }
 
     if let Some(if_expr) = expression.as_any().downcast_ref::<ast::IfExpression>() {
-        return eval_if_expression(if_expr);
+        return eval_if_expression(if_expr, env);
     }
 
     Box::new(null_obj().clone())
 }
 
-fn eval_if_expression(if_expression: &ast::IfExpression) -> Box<dyn Object> {
-    let condition = eval_expression(if_expression.condition.as_ref());
-
-    if is_error(&*condition) {
-        return condition;
+fn eval_identifier(node: &ast::Identifier, env: &Environment) -> Box<dyn Object> {
+    match env.get(&node.value) {
+        Some(val) => val.clone(),
+        None => Box::new(null_obj().clone()), // Should return an error in a real implementation
     }
+}
+
+fn eval_if_expression(if_expression: &ast::IfExpression, env: &mut Environment) -> Box<dyn Object> {
+    let condition = eval_expression(if_expression.condition.as_ref(), env);
 
     if is_truthy(condition) {
-        eval_block_statement(&if_expression.consequence)
+        eval_block_statement(&if_expression.consequence, env)
     } else if let Some(alt) = &if_expression.alternative {
-        eval_block_statement(alt)
+        eval_block_statement(alt, env)
     } else {
         Box::new(null_obj().clone())
     }
 }
 
-fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
+fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Box<dyn Object> {
     let mut result: Box<dyn Object> = Box::new(null_obj().clone());
 
     for statement in &block.statements {
-        result = eval_statement(statement.as_ref());
+        result = eval_statement(statement.as_ref(), env);
 
-        if result.type_() == ObjectType::ReturnValue || result.type_() == ObjectType::Error {
+        if result.type_() == ObjectType::ReturnValue {
             return result;
         }
     }

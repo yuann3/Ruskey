@@ -1,3 +1,4 @@
+use ruskey::environment::Environment;
 use ruskey::evaluator::eval;
 use ruskey::lexer::Lexer;
 use ruskey::object::{Boolean, Error, Integer, Null, Object};
@@ -10,13 +11,6 @@ fn test_eval_integer_expression() {
         let evaluated = test_eval(input);
         test_integer_object(evaluated.as_ref(), expected);
     }
-}
-
-fn test_eval(input: &str) -> Box<dyn Object> {
-    let lexer = Lexer::new(input.to_string());
-    let mut parser = Parser::new(lexer);
-    let program = parser.parse_program();
-    eval(&program)
 }
 
 fn test_integer_object(obj: &dyn Object, expected: i64) {
@@ -207,4 +201,27 @@ fn test_error_handling() {
             }
         }
     }
+}
+
+#[test]
+fn test_let_statements() {
+    let tests = vec![
+        ("let a = 5; a;", 5),
+        ("let a = 5 * 5; a;", 25),
+        ("let a = 5; let b = a; b;", 5),
+        ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+    ];
+
+    for (input, expected) in tests {
+        let evaluated = test_eval(input);
+        test_integer_object(evaluated.as_ref(), expected);
+    }
+}
+
+fn test_eval(input: &str) -> Box<dyn Object> {
+    let lexer = Lexer::new(input.to_string());
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
+    let mut env = Environment::new();
+    eval(&program, &mut env)
 }

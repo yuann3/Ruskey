@@ -1,3 +1,4 @@
+use crate::environment::Environment;
 use crate::evaluator::eval;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
@@ -18,6 +19,7 @@ impl Repl {
 
     pub fn start<R: BufRead, W: Write>(&mut self, input: &mut R, output: &mut W) -> io::Result<()> {
         let mut line = String::new();
+        let mut env = Environment::new();
 
         // Print welcome message
         writeln!(output, "Ruskey Console")?;
@@ -42,8 +44,8 @@ impl Repl {
                     writeln!(output, "\t{}", error)?;
                 }
             } else {
-                // Evaluate the program
-                let evaluated = eval(&program);
+                // Evaluate the program with the environment
+                let evaluated = eval(&program, &mut env);
                 writeln!(output, "{}", evaluated.inspect())?;
             }
 

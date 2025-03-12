@@ -4,6 +4,7 @@
 //! "Writing An Interpreter In Go" by Thorsten Ball, but written in Rust.
 
 pub mod ast;
+pub mod environment;
 pub mod evaluator;
 pub mod lexer;
 pub mod object;
