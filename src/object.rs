@@ -7,6 +7,7 @@ pub enum ObjectType {
     Boolean,
     Null,
     ReturnValue,
+    Error,
 }
 
 impl fmt::Display for ObjectType {
@@ -16,6 +17,7 @@ impl fmt::Display for ObjectType {
             ObjectType::Boolean => write!(f, "BOOLEAN"),
             ObjectType::Null => write!(f, "NULL"),
             ObjectType::ReturnValue => write!(f, "RETURN_VALUE"),
+            ObjectType::Error => write!(f, "ERROR"),
         }
     }
 }
@@ -127,6 +129,32 @@ impl Object for ReturnValue {
 
     fn inspect(&self) -> String {
         self.value.inspect()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+// Error Handling
+#[derive(Debug, Clone, PartialEq)]
+pub struct Error {
+    pub message: String,
+}
+
+impl Error {
+    pub fn new(message: String) -> Self {
+        Error { message }
+    }
+}
+
+impl Object for Error {
+    fn type_(&self) -> ObjectType {
+        ObjectType::Error
+    }
+
+    fn inspect(&self) -> String {
+        format!("ERROR: {}", self.message)
     }
 
     fn as_any(&self) -> &dyn Any {

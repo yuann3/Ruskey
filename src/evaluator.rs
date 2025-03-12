@@ -2,7 +2,7 @@ use crate::ast::{
     self, BlockStatement, Expression, ExpressionStatement, InfixExpression, IntegerLiteral,
     PrefixExpression, Program, ReturnStatement, Statement,
 };
-use crate::object::{Boolean, Integer, Null, Object, ObjectType, ReturnValue};
+use crate::object::{Boolean, Error, Integer, Null, Object, ObjectType, ReturnValue};
 use std::sync::OnceLock;
 
 /// Static TRUE and FALSE objects
@@ -35,14 +35,28 @@ pub fn eval(program: &Program) -> Box<dyn Object> {
     eval_program(program)
 }
 
+/// Create new error object
+fn new_error(message: &str) -> Box<dyn Object> {
+    Box::new(Error::new(message.to_string()))
+}
+
+fn is_error(obj: &dyn Object) -> bool {
+    obj.type_() == ObjectType::Error
+}
+
 fn eval_program(program: &Program) -> Box<dyn Object> {
     let mut result: Box<dyn Object> = Box::new(null_obj().clone());
 
     for statement in &program.statements {
         result = eval_statement(statement.as_ref());
 
+        if is_error(&*result) {
+            return result;
+        }
+
+        // handle return value
         if let Some(return_value) = result.as_any().downcast_ref::<ReturnValue>() {
-            // Instead of cloning, we'll create a new object based on the type
+            // ectract the acatual value
             match return_value.value.type_() {
                 ObjectType::Integer => {
                     if let Some(int) = return_value.value.as_any().downcast_ref::<Integer>() {
@@ -59,7 +73,6 @@ fn eval_program(program: &Program) -> Box<dyn Object> {
                 }
                 _ => {}
             }
-            // Default fallback
             return Box::new(null_obj().clone());
         }
     }
@@ -74,6 +87,12 @@ fn eval_statement(statement: &dyn Statement) -> Box<dyn Object> {
             if let Some(return_stmt) = statement.as_any().downcast_ref::<ReturnStatement>() {
                 if let Some(return_val) = &return_stmt.return_value {
                     let val = eval_expression(return_val.as_ref());
+
+                    // error checking
+                    if is_error(&*val) {
+                        return val;
+                    }
+
                     return Box::new(ReturnValue::new(val));
                 }
                 return Box::new(null_obj().clone());
@@ -94,12 +113,21 @@ fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
 
     if let Some(prefix) = expression.as_any().downcast_ref::<PrefixExpression>() {
         let right = eval_expression(prefix.right.as_ref());
+        if is_error(&*right) {
+            return right;
+        }
         return eval_prefix_expression(&prefix.operator, right);
     }
 
     if let Some(infix) = expression.as_any().downcast_ref::<InfixExpression>() {
         let left = eval_expression(infix.left.as_ref());
+        if is_error(&*left) {
+            return left;
+        }
         let right = eval_expression(infix.right.as_ref());
+        if is_error(&*right) {
+            return right;
+        }
         return eval_infix_expression(&infix.operator, left, right);
     }
 
@@ -112,6 +140,10 @@ fn eval_expression(expression: &dyn Expression) -> Box<dyn Object> {
 
 fn eval_if_expression(if_expression: &ast::IfExpression) -> Box<dyn Object> {
     let condition = eval_expression(if_expression.condition.as_ref());
+
+    if is_error(&*condition) {
+        return condition;
+    }
 
     if is_truthy(condition) {
         eval_block_statement(&if_expression.consequence)
@@ -128,7 +160,7 @@ fn eval_block_statement(block: &BlockStatement) -> Box<dyn Object> {
     for statement in &block.statements {
         result = eval_statement(statement.as_ref());
 
-        if result.type_() == ObjectType::ReturnValue {
+        if result.type_() == ObjectType::ReturnValue || result.type_() == ObjectType::Error {
             return result;
         }
     }
@@ -183,7 +215,21 @@ fn eval_infix_expression(
         return native_bool_to_boolean_object(left_is_true != right_is_true);
     }
 
-    Box::new(null_obj().clone())
+    if left.type_() != right.type_() {
+        return new_error(&format!(
+            "type mismatch: {} {} {}",
+            left.type_(),
+            operator,
+            right.type_()
+        ));
+    }
+
+    new_error(&format!(
+        "unknown operator: {} {} {}",
+        left.type_(),
+        operator,
+        right.type_()
+    ))
 }
 
 fn eval_integer_infix_expression(
@@ -203,7 +249,7 @@ fn eval_integer_infix_expression(
         ">" => native_bool_to_boolean_object(left_val > right_val),
         "==" => native_bool_to_boolean_object(left_val == right_val),
         "!=" => native_bool_to_boolean_object(left_val != right_val),
-        _ => Box::new(null_obj().clone()), // The book would return an error here
+        _ => Box::new(null_obj().clone()),
     }
 }
 
@@ -211,7 +257,7 @@ fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Obj
     match operator {
         "!" => eval_bang_operator_expression(right),
         "-" => eval_minus_prefix_operator_expression(right),
-        _ => Box::new(null_obj().clone()),
+        _ => new_error(&format!("unknown operator: {}{}", operator, right.type_())),
     }
 }
 
@@ -228,6 +274,10 @@ fn eval_bang_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
 }
 
 fn eval_minus_prefix_operator_expression(right: Box<dyn Object>) -> Box<dyn Object> {
+    if right.type_() != ObjectType::Integer {
+        return new_error(&format!("unknown operator: -{}", right.type_()));
+    }
+
     if let Some(integer) = right.as_any().downcast_ref::<Integer>() {
         return Box::new(Integer::new(-integer.value));
     }

@@ -1,6 +1,6 @@
 use ruskey::evaluator::eval;
 use ruskey::lexer::Lexer;
-use ruskey::object::{Boolean, Integer, Null, Object};
+use ruskey::object::{Boolean, Error, Integer, Null, Object};
 use ruskey::parser::Parser;
 
 #[test]
@@ -170,5 +170,41 @@ fn test_return_statements() {
     for (input, expected) in tests {
         let evaluated = test_eval(input);
         test_integer_object(evaluated.as_ref(), expected);
+    }
+}
+
+#[test]
+fn test_error_handling() {
+    let tests = vec![
+        ("5 + true;", "type mismatch: INTEGER + BOOLEAN"),
+        ("5 + true; 5;", "type mismatch: INTEGER + BOOLEAN"),
+        ("-true", "unknown operator: -BOOLEAN"),
+        ("true + false;", "unknown operator: BOOLEAN + BOOLEAN"),
+        ("5; true + false; 5", "unknown operator: BOOLEAN + BOOLEAN"),
+        (
+            "if (10 > 1) { true + false; }",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+        (
+            "if (10 > 1) { if (10 > 1) { return true + false; } return 1; }",
+            "unknown operator: BOOLEAN + BOOLEAN",
+        ),
+    ];
+
+    for (input, expected_message) in tests {
+        let evaluated = test_eval(input);
+
+        match evaluated.as_any().downcast_ref::<Error>() {
+            Some(error) => {
+                assert_eq!(
+                    error.message, expected_message,
+                    "wrong error message. expected={}, got={}",
+                    expected_message, error.message
+                );
+            }
+            None => {
+                panic!("no error object returned. got={:?}", evaluated);
+            }
+        }
     }
 }
