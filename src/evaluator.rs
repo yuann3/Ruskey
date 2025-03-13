@@ -83,11 +83,20 @@ fn eval_program(program: &Program, env: &mut Environment) -> Box<dyn Object> {
 
 fn eval_statement(statement: &dyn Statement, env: &mut Environment) -> Box<dyn Object> {
     match statement.as_any().downcast_ref::<ExpressionStatement>() {
-        Some(expr_stmt) => eval_expression(expr_stmt.expression.as_ref(), env),
+        Some(expr_stmt) => {
+            let result = eval_expression(expr_stmt.expression.as_ref(), env);
+            if is_error(&*result) {
+                return result;
+            }
+            result
+        }
         None => {
             if let Some(return_stmt) = statement.as_any().downcast_ref::<ReturnStatement>() {
                 if let Some(return_val) = &return_stmt.return_value {
                     let val = eval_expression(return_val.as_ref(), env);
+                    if is_error(&*val) {
+                        return val;
+                    }
                     return Box::new(ReturnValue::new(val));
                 }
                 return Box::new(null_obj().clone());
@@ -97,6 +106,9 @@ fn eval_statement(statement: &dyn Statement, env: &mut Environment) -> Box<dyn O
             if let Some(let_stmt) = statement.as_any().downcast_ref::<LetStatement>() {
                 if let Some(val_expr) = &let_stmt.value {
                     let val = eval_expression(val_expr.as_ref(), env);
+                    if is_error(&*val) {
+                        return val;
+                    }
                     return env.set(let_stmt.name.value.clone(), val);
                 }
                 return Box::new(null_obj().clone());
@@ -123,12 +135,30 @@ fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dy
 
     if let Some(prefix) = expression.as_any().downcast_ref::<PrefixExpression>() {
         let right = eval_expression(prefix.right.as_ref(), env);
+
+        // Check for errors in the right expression
+        if is_error(&*right) {
+            return right;
+        }
+
         return eval_prefix_expression(&prefix.operator, right);
     }
 
     if let Some(infix) = expression.as_any().downcast_ref::<InfixExpression>() {
         let left = eval_expression(infix.left.as_ref(), env);
+
+        // Check for errors in left expression
+        if is_error(&*left) {
+            return left;
+        }
+
         let right = eval_expression(infix.right.as_ref(), env);
+
+        // Check for errors in right expression
+        if is_error(&*right) {
+            return right;
+        }
+
         return eval_infix_expression(&infix.operator, left, right);
     }
 
@@ -142,12 +172,16 @@ fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dy
 fn eval_identifier(node: &ast::Identifier, env: &Environment) -> Box<dyn Object> {
     match env.get(&node.value) {
         Some(val) => val.clone(),
-        None => Box::new(null_obj().clone()), // Should return an error in a real implementation
+        None => new_error(&format!("identifier not found: {}", node.value)),
     }
 }
 
 fn eval_if_expression(if_expression: &ast::IfExpression, env: &mut Environment) -> Box<dyn Object> {
     let condition = eval_expression(if_expression.condition.as_ref(), env);
+
+    if is_error(&*condition) {
+        return condition;
+    }
 
     if is_truthy(condition) {
         eval_block_statement(&if_expression.consequence, env)
@@ -164,7 +198,7 @@ fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Box<dy
     for statement in &block.statements {
         result = eval_statement(statement.as_ref(), env);
 
-        if result.type_() == ObjectType::ReturnValue {
+        if result.type_() == ObjectType::ReturnValue || result.type_() == ObjectType::Error {
             return result;
         }
     }
@@ -195,6 +229,15 @@ fn eval_infix_expression(
         return eval_integer_infix_expression(operator, left, right);
     }
 
+    if left.type_() != right.type_() {
+        return new_error(&format!(
+            "type mismatch: {} {} {}",
+            left.type_(),
+            operator,
+            right.type_()
+        ));
+    }
+
     if operator == "==" {
         let left_is_true = left
             .as_any()
@@ -217,15 +260,6 @@ fn eval_infix_expression(
             .downcast_ref::<Boolean>()
             .map_or(false, |b| b.value);
         return native_bool_to_boolean_object(left_is_true != right_is_true);
-    }
-
-    if left.type_() != right.type_() {
-        return new_error(&format!(
-            "type mismatch: {} {} {}",
-            left.type_(),
-            operator,
-            right.type_()
-        ));
     }
 
     new_error(&format!(
