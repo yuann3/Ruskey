@@ -266,7 +266,7 @@ impl Parser {
                 Some(Box::new(lit))
             }
             Err(_) => {
-                let msg = format!("ould not parse {} as integer", self.cur_token.literal);
+                let msg = format!("could not parse {} as integer", self.cur_token.literal);
                 self.errors.push(msg);
                 None
             }
