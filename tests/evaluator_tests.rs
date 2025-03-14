@@ -1,7 +1,7 @@
 use ruskey::environment::Environment;
 use ruskey::evaluator::eval;
 use ruskey::lexer::Lexer;
-use ruskey::object::{Boolean, Error, Integer, Null, Object};
+use ruskey::object::{Boolean, Error, Function, Integer, Null, Object};
 use ruskey::parser::Parser;
 
 #[test]
@@ -224,4 +224,57 @@ fn test_eval(input: &str) -> Box<dyn Object> {
     let program = parser.parse_program();
     let mut env = Environment::new();
     eval(&program, &mut env)
+}
+
+#[test]
+fn test_function_object() {
+    let input = "fn(x) { x + 2; };";
+    let evaluated = test_eval(input);
+
+    let func = evaluated
+        .as_any()
+        .downcast_ref::<Function>()
+        .unwrap_or_else(|| {
+            panic!("object is not Function. got={:?}", evaluated);
+        });
+
+    assert_eq!(
+        func.parameters.len(),
+        1,
+        "function has wrong parameters. got={:?}",
+        func.parameters
+    );
+
+    assert_eq!(
+        func.parameters[0].value, "x",
+        "parameter is not 'x'. got={:?}",
+        func.parameters[0]
+    );
+
+    // Check the body
+    let expected_body = "(x + 2)";
+    assert_eq!(
+        func.body.to_string(),
+        expected_body,
+        "body is not {}. got={}",
+        expected_body,
+        func.body
+    );
+}
+
+#[test]
+fn test_function_application() {
+    let tests = vec![
+        ("let identity = fn(x) { x; }; identity(5);", 5),
+        ("let identity = fn(x) { return x; }; identity(5);", 5),
+        ("let double = fn(x) { x * 2; }; double(5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+        ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+        ("fn(x) { x; }(5)", 5),
+    ];
+
+    for (input, expected) in tests {
+        let evaluated = test_eval(input);
+        test_integer_object(evaluated.as_ref(), expected);
+    }
 }

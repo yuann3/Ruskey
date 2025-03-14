@@ -1,5 +1,9 @@
+use crate::ast::{BlockStatement, Identifier};
+use crate::environment::Environment;
 use std::any::Any;
+use std::cell::RefCell;
 use std::fmt;
+use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ObjectType {
@@ -7,6 +11,7 @@ pub enum ObjectType {
     Boolean,
     Null,
     ReturnValue,
+    Function,
     Error,
 }
 
@@ -16,6 +21,7 @@ impl fmt::Display for ObjectType {
             ObjectType::Integer => write!(f, "INTEGER"),
             ObjectType::Boolean => write!(f, "BOOLEAN"),
             ObjectType::Null => write!(f, "NULL"),
+            ObjectType::Function => write!(f, "FUNCTION"),
             ObjectType::ReturnValue => write!(f, "RETURN_VALUE"),
             ObjectType::Error => write!(f, "ERROR"),
         }
@@ -129,6 +135,52 @@ impl Object for ReturnValue {
 
     fn inspect(&self) -> String {
         self.value.inspect()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+// Function
+#[derive(Debug, Clone)]
+pub struct Function {
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
+    pub env: Rc<RefCell<Environment>>,
+}
+
+impl Function {
+    pub fn new(
+        parameters: Vec<Identifier>,
+        body: BlockStatement,
+        env: Rc<RefCell<Environment>>,
+    ) -> Self {
+        Function {
+            parameters,
+            body,
+            env,
+        }
+    }
+}
+
+impl Object for Function {
+    fn type_(&self) -> ObjectType {
+        ObjectType::Function
+    }
+
+    fn inspect(&self) -> String {
+        let mut out = String::new();
+
+        let params: Vec<String> = self.parameters.iter().map(|p| p.value.clone()).collect();
+
+        out.push_str("fn(");
+        out.push_str(&params.join(", "));
+        out.push_str(") {\n");
+        out.push_str(&format!("{}", self.body));
+        out.push_str("\n}");
+
+        out
     }
 
     fn as_any(&self) -> &dyn Any {
