@@ -373,13 +373,16 @@ impl Parser {
         let token = self.cur_token.clone();
 
         if !self.expect_peek(TokenType::Lparen) {
-            return None;
+            // Add error, but continue parsing with defaults
+            self.errors.push("Expected '(' after fn".to_string());
         }
 
-        let parameters = self.parse_function_parameters()?;
+        let parameters = self.parse_function_parameters();
 
         if !self.expect_peek(TokenType::Lbrace) {
-            return None;
+            // Add error, but continue parsing with defaults
+            self.errors
+                .push("Expected '{' after function parameters".to_string());
         }
 
         let body = self.parse_block_statement();
@@ -391,24 +394,24 @@ impl Parser {
         }))
     }
 
-    fn parse_function_parameters(&mut self) -> Option<Vec<Identifier>> {
+    fn parse_function_parameters(&mut self) -> Vec<Identifier> {
         let mut identifiers = Vec::new();
 
+        // Handle empty parameter list
         if self.peek_token_is(&TokenType::Rparen) {
             self.next_token();
-            return Some(identifiers);
+            return identifiers;
         }
 
-        // parse first parameter
+        // Parse first parameter
         self.next_token();
-
         let ident = Identifier {
             token: self.cur_token.clone(),
             value: self.cur_token.literal.clone(),
         };
         identifiers.push(ident);
 
-        // parse subsequent parameters
+        // Parse subsequent parameters
         while self.peek_token_is(&TokenType::Comma) {
             self.next_token();
             self.next_token();
@@ -420,11 +423,10 @@ impl Parser {
             identifiers.push(ident);
         }
 
-        if !self.expect_peek(TokenType::Rparen) {
-            return None;
-        }
+        // Try to expect the closing parenthesis, but continue even if there's an error
+        self.expect_peek(TokenType::Rparen);
 
-        Some(identifiers)
+        identifiers
     }
 
     fn parse_call_expression(

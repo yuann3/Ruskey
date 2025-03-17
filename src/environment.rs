@@ -23,6 +23,7 @@ impl Environment {
             outer: Some(outer),
         }
     }
+
     /// Gets variable from Environment
     pub fn get(&self, name: &String) -> Option<Box<dyn Object>> {
         match self.store.get(name) {
@@ -60,7 +61,7 @@ impl Clone for Box<dyn Object> {
                 if let Some(function) = self.as_any().downcast_ref::<Function>() {
                     Box::new(Function {
                         parameters: function.parameters.clone(),
-                        body_node: Rc::clone(&function.body_node),
+                        body: function.body.clone(),
                         env: Rc::clone(&function.env),
                     })
                 } else {

@@ -1,4 +1,4 @@
-use crate::ast::{FunctionLiteral, Identifier};
+use crate::ast::{BlockStatement, Identifier};
 use crate::environment::Environment;
 use std::any::Any;
 use std::cell::RefCell;
@@ -146,15 +146,19 @@ impl Object for ReturnValue {
 #[derive(Debug)]
 pub struct Function {
     pub parameters: Vec<Identifier>,
-    pub body_node: Rc<FunctionLiteral>,
+    pub body: BlockStatement,
     pub env: Rc<RefCell<Environment>>,
 }
 
 impl Function {
-    pub fn new(func_literal: Rc<FunctionLiteral>, env: Rc<RefCell<Environment>>) -> Self {
+    pub fn new(
+        parameters: Vec<Identifier>,
+        body: BlockStatement,
+        env: Rc<RefCell<Environment>>,
+    ) -> Self {
         Function {
-            parameters: func_literal.parameters.clone(),
-            body_node: func_literal,
+            parameters,
+            body,
             env,
         }
     }
@@ -167,17 +171,12 @@ impl Object for Function {
 
     fn inspect(&self) -> String {
         let mut out = String::new();
-
         let params: Vec<String> = self.parameters.iter().map(|p| p.value.clone()).collect();
 
         out.push_str("fn(");
         out.push_str(&params.join(", "));
         out.push_str(") {\n");
-
-        for stmt in &self.body_node.body.statements {
-            out.push_str(&format!("  {}\n", stmt));
-        }
-
+        out.push_str(&format!("  {}\n", self.body.to_string()));
         out.push_str("}");
 
         out

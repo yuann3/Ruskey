@@ -33,6 +33,10 @@ pub trait Expression: Node + Debug {
     fn expression_node(&self);
     /// Enables downcasting to concrete expression types
     fn as_any(&self) -> &dyn Any;
+    /// For proper Clone
+    fn clone_box(&self) -> Box<dyn Expression>
+    where
+        Self: 'static;
 }
 
 /// A return statement (e.g., "return 5;")
@@ -296,6 +300,10 @@ impl Expression for DummyExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(DummyExpression)
+    }
 }
 
 impl Expression for PrefixExpression {
@@ -303,6 +311,14 @@ impl Expression for PrefixExpression {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(PrefixExpression {
+            token: self.token.clone(),
+            operator: self.operator.clone(),
+            right: self.right.clone_box(),
+        })
     }
 }
 
@@ -312,6 +328,15 @@ impl Expression for InfixExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(InfixExpression {
+            token: self.token.clone(),
+            left: self.left.clone_box(),
+            operator: self.operator.clone(),
+            right: self.right.clone_box(),
+        })
+    }
 }
 
 impl Expression for IntegerLiteral {
@@ -319,6 +344,13 @@ impl Expression for IntegerLiteral {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(IntegerLiteral {
+            token: self.token.clone(),
+            value: self.value.clone(),
+        })
     }
 }
 
@@ -328,6 +360,10 @@ impl Expression for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
 }
 
 impl Expression for Boolean {
@@ -335,6 +371,13 @@ impl Expression for Boolean {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(Boolean {
+            token: self.token.clone(),
+            value: self.value,
+        })
     }
 }
 
@@ -344,6 +387,15 @@ impl Expression for IfExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(IfExpression {
+            token: self.token.clone(),
+            condition: self.condition.clone_box(),
+            consequence: self.consequence.clone(),
+            alternative: self.alternative.clone(),
+        })
+    }
 }
 
 impl Expression for FunctionLiteral {
@@ -352,6 +404,10 @@ impl Expression for FunctionLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(self.clone())
+    }
 }
 
 impl Expression for CallExpression {
@@ -359,6 +415,19 @@ impl Expression for CallExpression {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        let mut arguments = Vec::new();
+        for arg in &self.arguments {
+            arguments.push(arg.clone_box());
+        }
+
+        Box::new(CallExpression {
+            token: self.token.clone(),
+            function: self.function.clone_box(),
+            arguments,
+        })
     }
 }
 
@@ -532,11 +601,42 @@ impl fmt::Display for CallExpression {
     }
 }
 
+/// --------------------
+/// Clone Implementation
+/// --------------------
 impl Clone for BlockStatement {
     fn clone(&self) -> Self {
+        let mut statements = Vec::new();
+
+        for stmt in &self.statements {
+            if let Some(expr_stmt) = stmt.as_any().downcast_ref::<ExpressionStatement>() {
+                let expr = expr_stmt.expression.clone_box();
+                statements.push(Box::new(ExpressionStatement {
+                    token: expr_stmt.token.clone(),
+                    expression: expr,
+                }) as Box<dyn Statement>);
+            } else if let Some(let_stmt) = stmt.as_any().downcast_ref::<LetStatement>() {
+                let value = let_stmt.value.as_ref().map(|expr| expr.clone_box());
+                statements.push(Box::new(LetStatement {
+                    token: let_stmt.token.clone(),
+                    name: let_stmt.name.clone(),
+                    value,
+                }) as Box<dyn Statement>);
+            } else if let Some(return_stmt) = stmt.as_any().downcast_ref::<ReturnStatement>() {
+                let return_value = return_stmt
+                    .return_value
+                    .as_ref()
+                    .map(|expr| expr.clone_box());
+                statements.push(Box::new(ReturnStatement {
+                    token: return_stmt.token.clone(),
+                    return_value,
+                }) as Box<dyn Statement>);
+            }
+        }
+
         BlockStatement {
             token: self.token.clone(),
-            statements: Vec::new(),
+            statements,
         }
     }
 }

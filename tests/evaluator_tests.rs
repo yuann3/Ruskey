@@ -13,11 +13,6 @@ fn test_eval_integer_expression() {
     }
 }
 
-fn test_integer_object(obj: &dyn Object, expected: i64) {
-    let integer = obj.as_any().downcast_ref::<Integer>().unwrap();
-    assert_eq!(integer.value, expected, "object has wrong value");
-}
-
 #[test]
 fn test_eval_boolean_expression() {
     let tests = vec![("true", true), ("false", false)];
@@ -218,14 +213,6 @@ fn test_let_statements() {
     }
 }
 
-fn test_eval(input: &str) -> Box<dyn Object> {
-    let lexer = Lexer::new(input.to_string());
-    let mut parser = Parser::new(lexer);
-    let program = parser.parse_program();
-    let mut env = Environment::new();
-    eval(&program, &mut env)
-}
-
 #[test]
 fn test_function_object() {
     let input = "fn(x) { x + 2; };";
@@ -254,11 +241,11 @@ fn test_function_object() {
     // Check the body
     let expected_body = "(x + 2)";
     assert_eq!(
-        func.body_node.body.to_string(),
+        func.body.to_string(),
         expected_body,
         "body is not {}. got={}",
         expected_body,
-        func.body_node.body
+        func.body
     );
 }
 
@@ -277,4 +264,18 @@ fn test_function_application() {
         let evaluated = test_eval(input);
         test_integer_object(evaluated.as_ref(), expected);
     }
+}
+
+// Helper function
+fn test_eval(input: &str) -> Box<dyn Object> {
+    let lexer = Lexer::new(input.to_string());
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
+    let mut env = Environment::new();
+    eval(&program, &mut env)
+}
+
+fn test_integer_object(obj: &dyn Object, expected: i64) {
+    let integer = obj.as_any().downcast_ref::<Integer>().unwrap();
+    assert_eq!(integer.value, expected, "object has wrong value");
 }

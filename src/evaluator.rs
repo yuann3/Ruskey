@@ -169,11 +169,10 @@ fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dy
     }
 
     if let Some(fn_lit) = expression.as_any().downcast_ref::<ast::FunctionLiteral>() {
+        let parameters = fn_lit.parameters.clone();
+        let body = fn_lit.body.clone();
         let env_rc = Rc::new(RefCell::new(env.clone()));
-
-        let fn_rc = Rc::new(fn_lit.clone());
-
-        return Box::new(Function::new(fn_rc, env_rc));
+        return Box::new(Function::new(parameters, body, env_rc));
     }
 
     if let Some(call) = expression.as_any().downcast_ref::<ast::CallExpression>() {
@@ -214,11 +213,7 @@ fn apply_function(func: Box<dyn Object>, args: Vec<Box<dyn Object>>) -> Box<dyn 
     };
 
     let mut extended_env = extend_function_env(function, &args);
-
-    // Evaluate the function body with the extended environment
-    let evaluated = eval_block_statement(&function.body_node.body, &mut extended_env);
-
-    // Unwrap any return value objects
+    let evaluated = eval_block_statement(&function.body, &mut extended_env);
     unwrap_return_value(evaluated)
 }
 
@@ -266,7 +261,7 @@ fn eval_if_expression(if_expression: &ast::IfExpression, env: &mut Environment) 
 }
 
 fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Box<dyn Object> {
-    let mut result: Box<dyn Object> = Box::new(null_obj().clone());
+    let mut result: Box<dyn Object> = Box::new(Null::new());
 
     for statement in &block.statements {
         result = eval_statement(statement.as_ref(), env);
