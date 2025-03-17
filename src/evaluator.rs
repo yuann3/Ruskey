@@ -3,7 +3,9 @@ use crate::ast::{
     LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
 };
 use crate::environment::Environment;
-use crate::object::{Boolean, Error, Integer, Null, Object, ObjectType, ReturnValue};
+use crate::object::{Boolean, Error, Function, Integer, Null, Object, ObjectType, ReturnValue};
+use std::cell::RefCell;
+use std::rc::Rc;
 use std::sync::OnceLock;
 
 /// Static TRUE and FALSE objects
@@ -166,7 +168,75 @@ fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dy
         return eval_if_expression(if_expr, env);
     }
 
+    if let Some(fn_lit) = expression.as_any().downcast_ref::<ast::FunctionLiteral>() {
+        // Create a reference-counted wrapper around the FunctionLiteral
+        let fn_rc = Rc::new(fn_lit.clone());
+        let env_rc = Rc::new(RefCell::new(env.clone()));
+        return Box::new(Function::new(fn_rc, env_rc));
+    }
+
+    if let Some(call) = expression.as_any().downcast_ref::<ast::CallExpression>() {
+        let function = eval_expression(call.function.as_ref(), env);
+        if is_error(&*function) {
+            return function;
+        }
+
+        let args = eval_expressions(&call.arguments, env);
+        if !args.is_empty() && is_error(&*args[0]) {
+            return args[0].clone();
+        }
+
+        return apply_function(function, args);
+    }
+
     Box::new(null_obj().clone())
+}
+
+fn eval_expressions(exps: &[Box<dyn Expression>], env: &mut Environment) -> Vec<Box<dyn Object>> {
+    let mut result = Vec::new();
+
+    for exp in exps {
+        let evaluated = eval_expression(exp.as_ref(), env);
+        if is_error(&*evaluated) {
+            return vec![evaluated];
+        }
+        result.push(evaluated);
+    }
+
+    result
+}
+
+fn apply_function(func: Box<dyn Object>, args: Vec<Box<dyn Object>>) -> Box<dyn Object> {
+    let function = match func.as_any().downcast_ref::<Function>() {
+        Some(f) => f,
+        None => return new_error(&format!("not a function: {}", func.type_())),
+    };
+
+    let mut extended_env = extend_function_env(function, &args);
+
+    let evaluated = eval_block_statement(&function.body_node.body, &mut extended_env);
+
+    unwrap_return_value(evaluated)
+}
+
+fn extend_function_env(function: &Function, args: &[Box<dyn Object>]) -> Environment {
+    let mut extended_env = Environment::new_enclosed(Rc::clone(&function.env));
+
+    for (param_idx, param) in function.parameters.iter().enumerate() {
+        if param_idx < args.len() {
+            extended_env.set(param.value.clone(), args[param_idx].clone());
+        }
+    }
+
+    extended_env
+}
+
+fn unwrap_return_value(obj: Box<dyn Object>) -> Box<dyn Object> {
+    if let Some(return_value) = obj.as_any().downcast_ref::<ReturnValue>() {
+        return_value.value.clone()
+    } else {
+        obj
+    }
 }
 
 fn eval_identifier(node: &ast::Identifier, env: &Environment) -> Box<dyn Object> {

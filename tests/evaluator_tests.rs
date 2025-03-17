@@ -254,11 +254,11 @@ fn test_function_object() {
     // Check the body
     let expected_body = "(x + 2)";
     assert_eq!(
-        func.body.to_string(),
+        func.body_node.body.to_string(),
         expected_body,
         "body is not {}. got={}",
         expected_body,
-        func.body
+        func.body_node.body
     );
 }
 

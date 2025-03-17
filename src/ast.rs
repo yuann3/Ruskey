@@ -532,3 +532,25 @@ impl fmt::Display for CallExpression {
         write!(f, "{}({})", self.function, args.join(", "))
     }
 }
+
+impl Clone for BlockStatement {
+    fn clone(&self) -> Self {
+        BlockStatement {
+            token: self.token.clone(),
+            statements: Vec::new(),
+        }
+    }
+}
+
+impl Clone for FunctionLiteral {
+    fn clone(&self) -> Self {
+        FunctionLiteral {
+            token: self.token.clone(),
+            parameters: self.parameters.clone(),
+            body: BlockStatement {
+                token: self.body.token.clone(),
+                statements: Vec::new(),
+            },
+        }
+    }
+}
