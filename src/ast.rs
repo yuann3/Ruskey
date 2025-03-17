@@ -491,11 +491,10 @@ impl fmt::Display for Boolean {
 
 impl fmt::Display for BlockStatement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{{ ")?; // Add opening brace
         for stmt in &self.statements {
             write!(f, "{}", stmt)?;
         }
-        write!(f, " }}")
+        Ok(())
     }
 }
 

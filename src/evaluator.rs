@@ -169,9 +169,10 @@ fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dy
     }
 
     if let Some(fn_lit) = expression.as_any().downcast_ref::<ast::FunctionLiteral>() {
-        // Create a reference-counted wrapper around the FunctionLiteral
-        let fn_rc = Rc::new(fn_lit.clone());
         let env_rc = Rc::new(RefCell::new(env.clone()));
+
+        let fn_rc = Rc::new(fn_lit.clone());
+
         return Box::new(Function::new(fn_rc, env_rc));
     }
 
@@ -214,14 +215,17 @@ fn apply_function(func: Box<dyn Object>, args: Vec<Box<dyn Object>>) -> Box<dyn 
 
     let mut extended_env = extend_function_env(function, &args);
 
+    // Evaluate the function body with the extended environment
     let evaluated = eval_block_statement(&function.body_node.body, &mut extended_env);
 
+    // Unwrap any return value objects
     unwrap_return_value(evaluated)
 }
 
 fn extend_function_env(function: &Function, args: &[Box<dyn Object>]) -> Environment {
     let mut extended_env = Environment::new_enclosed(Rc::clone(&function.env));
 
+    // Bind each parameter to the corresponding argument
     for (param_idx, param) in function.parameters.iter().enumerate() {
         if param_idx < args.len() {
             extended_env.set(param.value.clone(), args[param_idx].clone());
@@ -233,10 +237,9 @@ fn extend_function_env(function: &Function, args: &[Box<dyn Object>]) -> Environ
 
 fn unwrap_return_value(obj: Box<dyn Object>) -> Box<dyn Object> {
     if let Some(return_value) = obj.as_any().downcast_ref::<ReturnValue>() {
-        return_value.value.clone()
-    } else {
-        obj
+        return return_value.value.clone();
     }
+    obj
 }
 
 fn eval_identifier(node: &ast::Identifier, env: &Environment) -> Box<dyn Object> {
@@ -268,8 +271,9 @@ fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> Box<dy
     for statement in &block.statements {
         result = eval_statement(statement.as_ref(), env);
 
-        if result.type_() == ObjectType::ReturnValue || result.type_() == ObjectType::Error {
-            return result;
+        match result.type_() {
+            ObjectType::ReturnValue | ObjectType::Error => return result,
+            _ => {}
         }
     }
 

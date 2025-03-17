@@ -173,8 +173,12 @@ impl Object for Function {
         out.push_str("fn(");
         out.push_str(&params.join(", "));
         out.push_str(") {\n");
-        out.push_str(&format!("{}", self.body_node.body));
-        out.push_str("\n}");
+
+        for stmt in &self.body_node.body.statements {
+            out.push_str(&format!("  {}\n", stmt));
+        }
+
+        out.push_str("}");
 
         out
     }

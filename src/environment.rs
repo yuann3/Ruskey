@@ -1,4 +1,4 @@
-use crate::object::Object;
+use crate::object::{Boolean, Function, Integer, Null, Object, ObjectType};
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -48,21 +48,26 @@ impl Environment {
 impl Clone for Box<dyn Object> {
     fn clone(&self) -> Self {
         match self.type_() {
-            crate::object::ObjectType::Integer => {
-                let int = self
-                    .as_any()
-                    .downcast_ref::<crate::object::Integer>()
-                    .unwrap();
-                Box::new(crate::object::Integer::new(int.value))
+            ObjectType::Integer => {
+                let int = self.as_any().downcast_ref::<Integer>().unwrap();
+                Box::new(Integer::new(int.value))
             }
-            crate::object::ObjectType::Boolean => {
-                let boolean = self
-                    .as_any()
-                    .downcast_ref::<crate::object::Boolean>()
-                    .unwrap();
-                Box::new(crate::object::Boolean::new(boolean.value))
+            ObjectType::Boolean => {
+                let boolean = self.as_any().downcast_ref::<Boolean>().unwrap();
+                Box::new(Boolean::new(boolean.value))
             }
-            _ => Box::new(crate::object::Null::new()),
+            ObjectType::Function => {
+                if let Some(function) = self.as_any().downcast_ref::<Function>() {
+                    Box::new(Function {
+                        parameters: function.parameters.clone(),
+                        body_node: Rc::clone(&function.body_node),
+                        env: Rc::clone(&function.env),
+                    })
+                } else {
+                    Box::new(Null::new())
+                }
+            }
+            _ => Box::new(Null::new()),
         }
     }
 }
