@@ -21,7 +21,6 @@ impl Repl {
         let mut line = String::new();
         let mut env = Environment::new();
 
-        // Print welcome message
         writeln!(output, "Ruskey Console")?;
         writeln!(output, "Type command below")?;
 
@@ -30,23 +29,24 @@ impl Repl {
             output.flush()?;
 
             if input.read_line(&mut line)? == 0 {
-                return Ok(()); // EOF reached
+                return Ok(());
             }
 
             let lexer = Lexer::new(line.clone());
             let mut parser = Parser::new(lexer);
             let program = parser.parse_program();
 
-            // Check for parser errors
             if !parser.errors().is_empty() {
                 writeln!(output, "Parser errors:")?;
                 for error in parser.errors() {
                     writeln!(output, "\t{}", error)?;
                 }
             } else {
-                // Evaluate the program with the environment
                 let evaluated = eval(&program, &mut env);
-                writeln!(output, "{}", evaluated.inspect())?;
+
+                if evaluated.type_() != crate::object::ObjectType::Function {
+                    writeln!(output, "{}", evaluated.inspect())?;
+                }
             }
 
             line.clear(); // Reset line buffer
