@@ -1,7 +1,7 @@
 use ruskey::environment::Environment;
 use ruskey::evaluator::eval;
 use ruskey::lexer::Lexer;
-use ruskey::object::{Boolean, Error, Function, Integer, Null, Object};
+use ruskey::object::{Boolean, Error, Function, Integer, Null, Object, StringObj};
 use ruskey::parser::Parser;
 
 #[test]
@@ -292,4 +292,55 @@ fn test_closures() {
 
     let evaluated = test_eval(input);
     test_integer_object(evaluated.as_ref(), 5);
+}
+
+#[test]
+fn test_string_literal() {
+    let input = r#""Hello World!""#;
+
+    let evaluated = test_eval(input);
+    let string = evaluated
+        .as_any()
+        .downcast_ref::<StringObj>()
+        .expect("Expected StringObj");
+
+    assert_eq!(
+        string.value, "Hello World!",
+        "String has wrong value. got={:?}",
+        string.value
+    );
+}
+
+#[test]
+fn test_string_concatenation() {
+    let input = r#""Hello" + " " + "World!""#;
+
+    let evaluated = test_eval(input);
+    let string = evaluated
+        .as_any()
+        .downcast_ref::<StringObj>()
+        .expect("Expected StringObj");
+
+    assert_eq!(
+        string.value, "Hello World!",
+        "String has wrong value. got={:?}",
+        string.value
+    );
+}
+
+#[test]
+fn test_string_error_operations() {
+    let input = r#""Hello" - "World""#;
+
+    let evaluated = test_eval(input);
+    let error = evaluated
+        .as_any()
+        .downcast_ref::<Error>()
+        .expect("Expected Error");
+
+    assert_eq!(
+        error.message, "unknown operator: STRING - STRING",
+        "wrong error message. got={:?}",
+        error.message
+    );
 }

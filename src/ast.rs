@@ -152,7 +152,7 @@ pub struct IfExpression {
     pub alternative: Option<BlockStatement>,
 }
 
-/// function literal (eg. "fn(x, y) { x + y; }"
+/// function literal (eg. "fn(x, y) { x + y; }")
 #[derive(Debug)]
 pub struct FunctionLiteral {
     /// 'fn' token
@@ -161,6 +161,13 @@ pub struct FunctionLiteral {
     pub parameters: Vec<Identifier>,
     /// function body
     pub body: BlockStatement,
+}
+
+/// string literal (eg. "Hello World")
+#[derive(Debug)]
+pub struct StringLiteral {
+    pub token: Token,
+    pub value: String,
 }
 
 /// call expression (eg. "add(1, 2)", "fn(x, y) { x + y; }(1, 2)")
@@ -262,6 +269,12 @@ impl Node for ReturnStatement {
     }
 }
 
+impl Node for StringLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
 impl Statement for ExpressionStatement {
     fn statement_node(&self) {}
 
@@ -291,6 +304,21 @@ impl Statement for ReturnStatement {
 
     fn as_any(&self) -> &dyn Any {
         self
+    }
+}
+
+impl Expression for StringLiteral {
+    fn expression_node(&self) {}
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn clone_box(&self) -> Box<dyn Expression> {
+        Box::new(StringLiteral {
+            token: self.token.clone(),
+            value: self.value.clone(),
+        })
     }
 }
 
@@ -598,6 +626,12 @@ impl fmt::Display for CallExpression {
         let args: Vec<String> = self.arguments.iter().map(|a| a.to_string()).collect();
 
         write!(f, "{}({})", self.function, args.join(", "))
+    }
+}
+
+impl fmt::Display for StringLiteral {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.value)
     }
 }
 

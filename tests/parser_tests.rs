@@ -1,7 +1,7 @@
 use ruskey::ast::{
     Boolean, CallExpression, Expression, ExpressionStatement, FunctionLiteral, Identifier,
     IfExpression, InfixExpression, IntegerLiteral, LetStatement, Node, PrefixExpression,
-    ReturnStatement, Statement,
+    ReturnStatement, Statement, StringLiteral,
 };
 use ruskey::lexer::Lexer;
 use ruskey::parser::Parser;
@@ -723,4 +723,31 @@ fn test_call_expression_parsing() {
     test_literal_expression(&exp.arguments[0], 1);
     test_infix_expression(&exp.arguments[1], 2, "*", 3);
     test_infix_expression(&exp.arguments[2], 4, "+", 5);
+}
+
+#[test]
+fn test_string_literal_expression() {
+    let input = r#""hello world";"#;
+
+    let lexer = Lexer::new(input.to_string());
+    let mut parser = Parser::new(lexer);
+    let program = parser.parse_program();
+    check_parser_errors(&parser);
+
+    let stmt = program.statements[0]
+        .as_any()
+        .downcast_ref::<ExpressionStatement>()
+        .expect("Expected ExpressionStatement");
+
+    let literal = stmt
+        .expression
+        .as_any()
+        .downcast_ref::<StringLiteral>()
+        .expect("Expected StringLiteral");
+
+    assert_eq!(
+        literal.value, "hello world",
+        "literal.value not correct. got={}",
+        literal.value
+    );
 }

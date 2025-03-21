@@ -1,4 +1,4 @@
-use crate::object::{Boolean, Function, Integer, Null, Object, ObjectType};
+use crate::object::{Boolean, Function, Integer, Null, Object, ObjectType, StringObj};
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -56,6 +56,10 @@ impl Clone for Box<dyn Object> {
             ObjectType::Boolean => {
                 let boolean = self.as_any().downcast_ref::<Boolean>().unwrap();
                 Box::new(Boolean::new(boolean.value))
+            }
+            ObjectType::String => {
+                let string = self.as_any().downcast_ref::<StringObj>().unwrap();
+                Box::new(StringObj::new(string.value.clone()))
             }
             ObjectType::Function => {
                 if let Some(function) = self.as_any().downcast_ref::<Function>() {

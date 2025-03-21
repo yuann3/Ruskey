@@ -48,6 +48,10 @@ impl Lexer {
         self.skip_whitespace();
 
         let tok = match self.ch {
+            b'"' => {
+                let literal = self.read_string();
+                Token::new(TokenType::String, literal)
+            }
             b'=' => {
                 if self.peek_char() == b'=' {
                     let ch = self.ch;
@@ -126,6 +130,20 @@ impl Lexer {
         while self.ch.is_ascii_whitespace() {
             self.read_char();
         }
+    }
+
+    /// Reads String from the input
+    fn read_string(&mut self) -> String {
+        let position = self.position + 1;
+
+        loop {
+            self.read_char();
+            if self.ch == b'"' || self.ch == 0 {
+                break;
+            }
+        }
+
+        self.input[position..self.position].to_string()
     }
 }
 

@@ -6,7 +6,7 @@
 use crate::ast::{
     BlockStatement, Boolean, CallExpression, DummyExpression, Expression, ExpressionStatement,
     FunctionLiteral, Identifier, IfExpression, InfixExpression, IntegerLiteral, LetStatement,
-    PrefixExpression, Program, ReturnStatement, Statement,
+    PrefixExpression, Program, ReturnStatement, Statement, StringLiteral,
 };
 use crate::lexer::Lexer;
 use crate::token::{Token, TokenType};
@@ -85,6 +85,7 @@ impl Parser {
         p.register_prefix(TokenType::If, Parser::parse_if_expression);
         p.register_prefix(TokenType::Ident, Parser::parse_identifier);
         p.register_prefix(TokenType::Function, Parser::parse_function_literal);
+        p.register_prefix(TokenType::String, Parser::parse_string_literal);
 
         // Register infix parse functions
         p.register_infix(TokenType::Plus, Parser::parse_infix_expression);
@@ -271,6 +272,13 @@ impl Parser {
                 None
             }
         }
+    }
+
+    fn parse_string_literal(&mut self) -> Option<Box<dyn Expression>> {
+        Some(Box::new(StringLiteral {
+            token: self.cur_token.clone(),
+            value: self.cur_token.literal.clone(),
+        }))
     }
 
     fn parse_prefix_expression(&mut self) -> Option<Box<dyn Expression>> {

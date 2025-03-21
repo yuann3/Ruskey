@@ -66,3 +66,30 @@ let result = add(five, ten);"#;
         );
     }
 }
+
+#[test]
+fn test_string_token() {
+    let input = r#""hello world";"#;
+
+    let mut lexer = Lexer::new(input.to_string());
+
+    let tokens = vec![
+        (TokenType::String, "hello world"),
+        (TokenType::Semicolon, ";"),
+        (TokenType::Eof, ""),
+    ];
+
+    for (expected_type, expected_literal) in tokens {
+        let tok = lexer.next_token();
+        assert_eq!(
+            tok.token_type, expected_type,
+            "token type wrong. expected={:?}, got={:?}",
+            expected_type, tok.token_type
+        );
+        assert_eq!(
+            tok.literal, expected_literal,
+            "token literal wrong. expected={}, got={}",
+            expected_literal, tok.literal
+        );
+    }
+}

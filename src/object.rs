@@ -8,6 +8,7 @@ use std::rc::Rc;
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum ObjectType {
     Integer,
+    String,
     Boolean,
     Null,
     ReturnValue,
@@ -19,6 +20,7 @@ impl fmt::Display for ObjectType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             ObjectType::Integer => write!(f, "INTEGER"),
+            ObjectType::String => write!(f, "STRING"),
             ObjectType::Boolean => write!(f, "BOOLEAN"),
             ObjectType::Null => write!(f, "NULL"),
             ObjectType::Function => write!(f, "FUNCTION"),
@@ -59,6 +61,32 @@ impl Object for Integer {
 
     fn inspect(&self) -> String {
         self.value.to_string()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// String object
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringObj {
+    pub value: String,
+}
+
+impl StringObj {
+    pub fn new(value: String) -> Self {
+        StringObj { value }
+    }
+}
+
+impl Object for StringObj {
+    fn type_(&self) -> ObjectType {
+        ObjectType::String
+    }
+
+    fn inspect(&self) -> String {
+        self.value.clone()
     }
 
     fn as_any(&self) -> &dyn Any {

@@ -1,9 +1,11 @@
 use crate::ast::{
     self, BlockStatement, Expression, ExpressionStatement, InfixExpression, IntegerLiteral,
-    LetStatement, PrefixExpression, Program, ReturnStatement, Statement,
+    LetStatement, PrefixExpression, Program, ReturnStatement, Statement, StringLiteral,
 };
 use crate::environment::Environment;
-use crate::object::{Boolean, Error, Function, Integer, Null, Object, ObjectType, ReturnValue};
+use crate::object::{
+    Boolean, Error, Function, Integer, Null, Object, ObjectType, ReturnValue, StringObj,
+};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::OnceLock;
@@ -124,6 +126,10 @@ fn eval_statement(statement: &dyn Statement, env: &mut Environment) -> Box<dyn O
 fn eval_expression(expression: &dyn Expression, env: &mut Environment) -> Box<dyn Object> {
     if let Some(int_lit) = expression.as_any().downcast_ref::<IntegerLiteral>() {
         return Box::new(Integer::new(int_lit.value));
+    }
+
+    if let Some(string_lit) = expression.as_any().downcast_ref::<StringLiteral>() {
+        return Box::new(StringObj::new(string_lit.value.clone()));
     }
 
     if let Some(bool_lit) = expression.as_any().downcast_ref::<ast::Boolean>() {
@@ -298,6 +304,10 @@ fn eval_infix_expression(
         return eval_integer_infix_expression(operator, left, right);
     }
 
+    if left.type_() == ObjectType::String && right.type_() == ObjectType::String {
+        return eval_string_infix_expression(operator, left, right);
+    }
+
     if left.type_() != right.type_() {
         return new_error(&format!(
             "type mismatch: {} {} {}",
@@ -358,6 +368,36 @@ fn eval_integer_infix_expression(
         "!=" => native_bool_to_boolean_object(left_val != right_val),
         _ => Box::new(null_obj().clone()),
     }
+}
+
+fn eval_string_infix_expression(
+    operator: &str,
+    left: Box<dyn Object>,
+    right: Box<dyn Object>,
+) -> Box<dyn Object> {
+    if operator != "+" {
+        return new_error(&format!(
+            "unknown operator: {} {} {}",
+            left.type_(),
+            operator,
+            right.type_()
+        ));
+    }
+
+    let left_val = left
+        .as_any()
+        .downcast_ref::<StringObj>()
+        .unwrap()
+        .value
+        .clone();
+    let right_val = right
+        .as_any()
+        .downcast_ref::<StringObj>()
+        .unwrap()
+        .value
+        .clone();
+
+    Box::new(StringObj::new(left_val + &right_val))
 }
 
 fn eval_prefix_expression(operator: &str, right: Box<dyn Object>) -> Box<dyn Object> {
