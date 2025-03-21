@@ -187,6 +187,16 @@ impl Object for Function {
     }
 }
 
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        Function {
+            parameters: self.parameters.clone(),
+            body: self.body.clone(),
+            env: Rc::clone(&self.env),
+        }
+    }
+}
+
 // Error Handling
 #[derive(Debug, Clone, PartialEq)]
 pub struct Error {

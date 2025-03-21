@@ -646,10 +646,7 @@ impl Clone for FunctionLiteral {
         FunctionLiteral {
             token: self.token.clone(),
             parameters: self.parameters.clone(),
-            body: BlockStatement {
-                token: self.body.token.clone(),
-                statements: Vec::new(),
-            },
+            body: self.body.clone(),
         }
     }
 }

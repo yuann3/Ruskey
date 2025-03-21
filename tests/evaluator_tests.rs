@@ -279,3 +279,17 @@ fn test_integer_object(obj: &dyn Object, expected: i64) {
     let integer = obj.as_any().downcast_ref::<Integer>().unwrap();
     assert_eq!(integer.value, expected, "object has wrong value");
 }
+
+#[test]
+fn test_closures() {
+    let input = "
+    let newAdder = fn(x) {
+        fn(y) { x + y };
+    };
+    let addTwo = newAdder(2);
+    addTwo(3);
+    ";
+
+    let evaluated = test_eval(input);
+    test_integer_object(evaluated.as_ref(), 5);
+}
