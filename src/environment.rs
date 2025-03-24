@@ -1,4 +1,4 @@
-use crate::object::{Boolean, Function, Integer, Null, Object, ObjectType, StringObj};
+use crate::object::{Boolean, Builtin, Function, Integer, Null, Object, ObjectType, StringObj};
 use std::rc::Rc;
 use std::{cell::RefCell, collections::HashMap};
 
@@ -72,6 +72,11 @@ impl Clone for Box<dyn Object> {
                     Box::new(Null::new())
                 }
             }
+            ObjectType::Builtin => {
+                let builtin = self.as_any().downcast_ref::<Builtin>().unwrap();
+                Box::new(Builtin::new(builtin.func))
+            }
+
             _ => Box::new(Null::new()),
         }
     }

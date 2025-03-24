@@ -14,6 +14,7 @@ pub enum ObjectType {
     ReturnValue,
     Function,
     Error,
+    Builtin,
 }
 
 impl fmt::Display for ObjectType {
@@ -26,11 +27,15 @@ impl fmt::Display for ObjectType {
             ObjectType::Function => write!(f, "FUNCTION"),
             ObjectType::ReturnValue => write!(f, "RETURN_VALUE"),
             ObjectType::Error => write!(f, "ERROR"),
+            ObjectType::Builtin => write!(f, "BUILTIN"),
         }
     }
 }
 
-/// Trait for all object type
+/// BuiltinFunction Type
+pub type BuiltinFunction = fn(args: Vec<Box<dyn Object>>) -> Box<dyn Object>;
+
+// Trait for all object type
 pub trait Object: fmt::Debug {
     /// Returns the type of the object
     fn type_(&self) -> ObjectType;
@@ -144,7 +149,7 @@ impl Object for Null {
     }
 }
 
-// ReturnValue struct
+/// ReturnValue struct
 #[derive(Debug)]
 pub struct ReturnValue {
     pub value: Box<dyn Object>,
@@ -170,7 +175,7 @@ impl Object for ReturnValue {
     }
 }
 
-// Function
+/// Function
 #[derive(Debug)]
 pub struct Function {
     pub parameters: Vec<Identifier>,
@@ -225,7 +230,7 @@ impl Clone for Function {
     }
 }
 
-// Error Handling
+/// Error Handling
 #[derive(Debug, Clone, PartialEq)]
 pub struct Error {
     pub message: String,
@@ -244,6 +249,32 @@ impl Object for Error {
 
     fn inspect(&self) -> String {
         format!("ERROR: {}", self.message)
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
+/// Builtin Function
+#[derive(Debug, Clone, PartialEq)]
+pub struct Builtin {
+    pub func: BuiltinFunction,
+}
+
+impl Builtin {
+    pub fn new(func: BuiltinFunction) -> Self {
+        Builtin { func }
+    }
+}
+
+impl Object for Builtin {
+    fn type_(&self) -> ObjectType {
+        ObjectType::Builtin
+    }
+
+    fn inspect(&self) -> String {
+        "builtin function".to_string()
     }
 
     fn as_any(&self) -> &dyn Any {

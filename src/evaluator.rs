@@ -2,9 +2,10 @@ use crate::ast::{
     self, BlockStatement, Expression, ExpressionStatement, InfixExpression, IntegerLiteral,
     LetStatement, PrefixExpression, Program, ReturnStatement, Statement, StringLiteral,
 };
+use crate::builtins;
 use crate::environment::Environment;
 use crate::object::{
-    Boolean, Error, Function, Integer, Null, Object, ObjectType, ReturnValue, StringObj,
+    Boolean, Builtin, Error, Function, Integer, Null, Object, ObjectType, ReturnValue, StringObj,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -213,27 +214,26 @@ fn eval_expressions(exps: &[Box<dyn Expression>], env: &mut Environment) -> Vec<
 }
 
 fn apply_function(func: Box<dyn Object>, args: Vec<Box<dyn Object>>) -> Box<dyn Object> {
-    let function = match func.as_any().downcast_ref::<Function>() {
-        Some(f) => f,
-        None => return new_error(&format!("not a function: {}", func.type_())),
-    };
+    match func.type_() {
+        ObjectType::Function => {
+            let function = func.as_any().downcast_ref::<Function>().unwrap();
+            let mut extended_env = Environment::new_enclosed(Rc::clone(&function.env));
 
-    let mut extended_env = extend_function_env(function, &args);
-    let evaluated = eval_block_statement(&function.body, &mut extended_env);
-    unwrap_return_value(evaluated)
-}
+            for (param_idx, param) in function.parameters.iter().enumerate() {
+                if param_idx < args.len() {
+                    extended_env.set(param.value.clone(), args[param_idx].clone());
+                }
+            }
 
-fn extend_function_env(function: &Function, args: &[Box<dyn Object>]) -> Environment {
-    let mut extended_env = Environment::new_enclosed(Rc::clone(&function.env));
-
-    // Bind each parameter to the corresponding argument
-    for (param_idx, param) in function.parameters.iter().enumerate() {
-        if param_idx < args.len() {
-            extended_env.set(param.value.clone(), args[param_idx].clone());
+            let evaluated = eval_block_statement(&function.body, &mut extended_env);
+            unwrap_return_value(evaluated)
         }
+        ObjectType::Builtin => {
+            let builtin = func.as_any().downcast_ref::<Builtin>().unwrap();
+            (builtin.func)(args)
+        }
+        _ => new_error(&format!("not a function: {}", func.type_())),
     }
-
-    extended_env
 }
 
 fn unwrap_return_value(obj: Box<dyn Object>) -> Box<dyn Object> {
@@ -244,10 +244,17 @@ fn unwrap_return_value(obj: Box<dyn Object>) -> Box<dyn Object> {
 }
 
 fn eval_identifier(node: &ast::Identifier, env: &Environment) -> Box<dyn Object> {
-    match env.get(&node.value) {
-        Some(val) => val.clone(),
-        None => new_error(&format!("identifier not found: {}", node.value)),
+    if let Some(val) = env.get(&node.value) {
+        return val;
     }
+
+    let builtins = builtins::get_builtins();
+    if let Some(builtin) = builtins.get(&node.value) {
+        return builtin.clone();
+    }
+
+    // If not found, return an error
+    new_error(&format!("identifier not found: {}", node.value))
 }
 
 fn eval_if_expression(if_expression: &ast::IfExpression, env: &mut Environment) -> Box<dyn Object> {
